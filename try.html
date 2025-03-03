@@ -1,0 +1,259 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Visitor Management System</title>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.2/css/all.min.css">
+    <style>
+        /* General Reset */
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+            font-family: Arial, sans-serif;
+        }
+
+        body {
+            display: flex;
+            background: #f4f4f4;
+        }
+
+        /* Sidebar */
+        .sidebar {
+            width: 250px;
+            background: #2C3E50;
+            color: white;
+            padding: 20px;
+            height: 100vh;
+            position: fixed;
+            left: 0;
+            top: 0;
+            overflow-y: auto;
+        }
+
+        .sidebar h2 {
+            text-align: center;
+            font-size: 20px;
+            margin-bottom: 20px;
+        }
+
+        .sidebar button {
+            width: 100%;
+            padding: 12px;
+            margin: 10px 0;
+            background: #77DD77;
+            border: none;
+            font-size: 16px;
+            cursor: pointer;
+            text-align: left;
+        }
+
+        .sidebar button:hover {
+            background: #5cab5c;
+        }
+
+        /* Main Content */
+        .main-content {
+            flex-grow: 1;
+            margin-left: 260px;
+            padding: 20px;
+        }
+
+        /* Top Navbar */
+        .navbar {
+            background: #27ae60;
+            padding: 15px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            color: white;
+        }
+
+        .search-box {
+            display: flex;
+            align-items: center;
+            background: white;
+            padding: 5px;
+            border-radius: 5px;
+        }
+
+        .search-box input {
+            border: none;
+            padding: 5px;
+            outline: none;
+        }
+
+        .search-box i {
+            margin-left: 5px;
+            color: gray;
+        }
+
+        .profile {
+            display: flex;
+            align-items: center;
+        }
+
+        .profile i {
+            margin-right: 8px;
+        }
+
+        /* Visitor Entry Form */
+        .form-container {
+            background: white;
+            padding: 20px;
+            border-radius: 5px;
+            box-shadow: 0 0 10px #ccc;
+            margin-top: 20px;
+        }
+
+        .form-container h2 {
+            margin-bottom: 10px;
+            color: #2C3E50;
+        }
+
+        .form-group {
+            display: flex;
+            justify-content: space-between;
+            margin-bottom: 15px;
+        }
+
+        .form-group label {
+            font-weight: bold;
+            margin-bottom: 5px;
+            display: block;
+        }
+
+        .form-group input, .form-group select {
+            width: 100%;
+            padding: 10px;
+            border: 1px solid #ccc;
+            border-radius: 5px;
+        }
+
+        .form-group div {
+            width: 48%;
+        }
+
+        .submit-btn {
+            width: 100%;
+            padding: 12px;
+            background: #2980B9;
+            color: white;
+            border: none;
+            cursor: pointer;
+            font-size: 16px;
+            border-radius: 5px;
+        }
+
+        .submit-btn:hover {
+            background: #1A5276;
+        }
+
+        /* Responsive Design */
+        @media (max-width: 768px) {
+            .sidebar {
+                width: 200px;
+            }
+            .main-content {
+                margin-left: 210px;
+            }
+            .form-group {
+                flex-direction: column;
+            }
+            .form-group div {
+                width: 100%;
+            }
+        }
+    </style>
+</head>
+<body>
+
+    <!-- Sidebar -->
+    <div class="sidebar">
+        <h2>AVMS</h2>
+        <button><i class="fa fa-home"></i> Dashboard</button>
+        <button><i class="fa fa-list"></i> Apartment List</button>
+        <button><i class="fa fa-user-plus"></i> New Visitor Entry</button>
+        <button><i class="fa fa-users"></i> Current Visitors</button>
+        <button><i class="fa fa-table"></i> Visitor List</button>
+        <button><i class="fa fa-file"></i> Reports</button>
+    </div>
+
+    <!-- Main Content -->
+    <div class="main-content">
+        
+        <!-- Navbar -->
+        <div class="navbar">
+            <div class="search-box">
+                <input type="text" placeholder="Search Visitor Here">
+                <i class="fa fa-search"></i>
+            </div>
+            <div class="profile">
+                <i class="fa fa-user-circle"></i> Mark Cooper
+            </div>
+        </div>
+
+        <!-- Visitor Entry Form -->
+        <div class="form-container">
+            <h2>New Visitor Entry</h2>
+            <p>Please fill up the details below</p>
+
+            <form>
+                <div class="form-group">
+                    <div>
+                        <label>Full Name</label>
+                        <input type="text" placeholder="Enter Full Name">
+                    </div>
+                    <div>
+                        <label>Contact Number</label>
+                        <input type="text" placeholder="Enter Contact Number">
+                    </div>
+                </div>
+
+                <div class="form-group">
+                    <div>
+                        <label>Address</label>
+                        <input type="text" placeholder="Enter Address">
+                    </div>
+                    <div>
+                        <label>Gender</label>
+                        <select>
+                            <option>Choose</option>
+                            <option>Male</option>
+                            <option>Female</option>
+                            <option>Other</option>
+                        </select>
+                    </div>
+                </div>
+
+                <div class="form-group">
+                    <div>
+                        <label>Apartment Number</label>
+                        <input type="text" placeholder="Enter Apartment Number">
+                    </div>
+                    <div>
+                        <label>Building Number</label>
+                        <input type="text" placeholder="Enter Building Number">
+                    </div>
+                </div>
+
+                <div class="form-group">
+                    <div>
+                        <label>Whom to Visit</label>
+                        <input type="text" placeholder="Enter Name">
+                    </div>
+                    <div>
+                        <label>Reason of Visiting</label>
+                        <input type="text" placeholder="Enter Reason">
+                    </div>
+                </div>
+
+                <button type="submit" class="submit-btn">Save Entry</button>
+            </form>
+        </div>
+
+    </div>
+
+</body>
+</html>

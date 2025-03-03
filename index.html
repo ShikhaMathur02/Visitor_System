@@ -1,0 +1,137 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Visitor Management System</title>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.2/css/all.min.css">
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+            font-family: 'Poppins', sans-serif;
+        }
+
+        body {
+            background: url('images/ClgGate.jpg') no-repeat center center/cover;
+            height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            text-align: center;
+            color: white;
+            position: relative;
+            overflow: hidden;
+        }
+
+        /* Overlay */
+        .overlay {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0, 0, 0, 0.4);
+        }
+
+        
+
+        /* Header */
+        .header {
+            position: absolute;
+            top: 20px;
+            left: 50%;
+            transform: translateX(-50%);
+            text-align: center;
+        }
+
+        .header h1 {
+            font-size: 38px;
+            font-weight: bold;
+            text-transform: uppercase;
+            letter-spacing: 2px;
+            animation: fadeIn 1s ease-in-out;
+        }
+
+        .header img {
+            width: 80px;
+            height: 80px;
+            animation: bounce 2s infinite;
+            border-radius: 50%;
+        }
+
+        /* Main Content */
+        .container {
+            position: relative;
+            z-index: 2;
+            animation: slideUp 1s ease-in-out;
+        }
+
+        .container h2 {
+            font-size: 30px;
+            margin-bottom: 15px;
+        }
+
+        .buttons {
+            display: flex;
+            justify-content: center;
+            gap: 20px;
+        }
+
+        .btn {
+            background: #27ae60;
+            color: white;
+            padding: 15px 30px;
+            font-size: 20px;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+            transition: transform 0.3s ease, background 0.3s;
+        }
+
+        .btn:hover {
+            transform: scale(1.1);
+            background: #218c53;
+        }
+
+        .btn i {
+            margin-right: 10px;
+        }
+
+        /* Animations */
+        @keyframes fadeIn {
+            from { opacity: 0; }
+            to { opacity: 1; }
+        }
+
+        @keyframes slideUp {
+            from { transform: translateY(50px); opacity: 0; }
+            to { transform: translateY(0); opacity: 1; }
+        }
+
+        @keyframes bounce {
+            0%, 100% { transform: translateY(0); }
+            50% { transform: translateY(-10px); }
+        }
+
+    </style>
+</head>
+<body>
+    <div class="overlay"></div>
+
+    <div class="header">
+        <!-- <img src="images/rbmi_transparent.png" alt="College Logo"> -->
+        <h1>RBMI Group Of Institutions</h1>
+    </div>
+
+    <div class="container">
+        <h2>Welcome to Visitor Management System</h2>
+        <div class="buttons">
+            <button class="btn"><i class="fa fa-user"></i> Visitor</button>
+            <button class="btn"><i class="fa fa-graduation-cap"></i> Student</button>
+        </div>
+    </div>
+
+</body>
+</html>

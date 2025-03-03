@@ -1,0 +1,45 @@
+body {
+    font-family: Arial, sans-serif;
+    margin: 0;
+    display: flex;
+}
+
+.sidebar {
+    width: 250px;
+    background: #2C3E50;
+    color: white;
+    padding: 20px;
+    height: 100vh;
+}
+
+.sidebar h2 {
+    text-align: center;
+}
+
+.sidebar button {
+    width: 100%;
+    padding: 10px;
+    margin: 10px 0;
+    background: #77DD77;
+    border: none;
+    cursor: pointer;
+}
+
+.main-content {
+    flex-grow: 1;
+    padding: 40px;
+}
+
+form input, form select {
+    width: 100%;
+    padding: 8px;
+    margin: 5px 0;
+}
+
+button {
+    padding: 10px;
+    background: #2980B9;
+    color: white;
+    border: none;
+    cursor: pointer;
+}
