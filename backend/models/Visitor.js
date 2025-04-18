@@ -1,14 +1,23 @@
-import mongoose from "mongoose";
+const mongoose = require("mongoose");
 
 const visitorSchema = new mongoose.Schema({
   name: String,
-  email: String,
   phone: String,
   purpose: String,
-  qrCode: String,
-  status: { type: String, default: "Pending" },
   entryTime: { type: Date, default: Date.now },
   exitTime: Date,
+  exitRequested: {
+    type: Boolean,
+    default: false
+  },
+  exitApproved: {
+    type: Boolean,
+    default: false
+  },
+  hasExited: {
+    type: Boolean,
+    default: false
+  }
 });
 
-export default mongoose.model("Visitor", visitorSchema);
+module.exports = mongoose.model("Visitor", visitorSchema);

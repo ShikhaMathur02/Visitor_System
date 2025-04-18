@@ -1,23 +1,140 @@
-import Visitor from "../models/Visitor.js";
-import { generateQR } from "../middleware/qrGenerator.js";
+const Visitor = require("../models/Visitor");
+const { notifyDirector, notifyGuard } = require("../utils/notifications");
 
-export const registerVisitor = async (req, res) => {
-  const { name, email, phone, purpose } = req.body;
+// ✅ Get all visitors
+exports.getAllVisitors = async (req, res) => {
   try {
-    const qrCode = await generateQR(`${name}-${email}-${phone}`);
-    const visitor = await Visitor.create({ name, email, phone, purpose, qrCode });
-    res.status(201).json(visitor);
+    const visitors = await Visitor.find();
+    res.status(200).json(visitors);
   } catch (error) {
-    res.status(500).json({ error: "Failed to register visitor" });
+    res.status(500).json({ message: "Error fetching visitors", error });
+  }
+};
+// ✅ Get pending exits
+exports.getPendingExits = async (req, res) => {
+  try {
+    const pendingVisitors = await Visitor.find({ 
+      exitRequested: true, 
+      exitApproved: false,
+      hasExited: false  // Add this condition
+    }).sort({ entryTime: -1 });  // Sort by most recent first
+
+    console.log(`Found ${pendingVisitors.length} pending visitor exits`); // Add logging
+    res.status(200).json(pendingVisitors);
+  } catch (error) {
+    console.error("Error in getPendingExits:", error);
+    res.status(500).json({ 
+      message: 'Error fetching pending visitor exits', 
+      error: error.message 
+    });
   }
 };
 
-export const approveVisitor = async (req, res) => {
-  const { id } = req.params;
+exports.getApprovedExits = async (req, res) => {
   try {
-    const visitor = await Visitor.findByIdAndUpdate(id, { status: "Approved" }, { new: true });
-    res.json(visitor);
+    const approvedVisitors = await Visitor.find({ 
+      exitApproved: true, 
+      hasExited: false 
+    }).sort({ entryTime: -1 });
+
+    console.log(`Found ${approvedVisitors.length} approved visitor exits`); // Add logging
+    res.status(200).json(approvedVisitors);
   } catch (error) {
-    res.status(500).json({ error: "Approval failed" });
+    console.error("Error in getApprovedExits:", error);
+    res.status(500).json({ 
+      message: 'Error fetching approved visitor exits', 
+      error: error.message 
+    });
+  }
+};
+// ✅ Get visitor by phone
+exports.getVisitorByPhone = async (req, res) => {
+  try {
+    const visitor = await Visitor.findOne({ phone: req.params.phone });
+    if (!visitor) return res.status(404).json({ message: "Visitor not found" });
+    res.status(200).json(visitor);
+  } catch (error) {
+    res.status(500).json({ message: "Error fetching visitor", error });
+  }
+};
+
+// ✅ Register visitor entry
+exports.visitorEntry = async (req, res) => {
+  try {
+    const visitor = new Visitor(req.body);
+    await visitor.save();
+    res.status(201).json({ message: "Visitor entry registered", visitor });
+  } catch (error) {
+    res.status(500).json({ message: "Error registering entry", error });
+  }
+};
+
+// ✅ Request exit approval
+exports.requestExit = async (req, res) => {
+  try {
+    const visitor = await Visitor.findOne({ phone: req.body.phone });
+    if (!visitor) return res.status(404).json({ message: "Visitor not found" });
+
+    visitor.exitRequested = true;
+    await visitor.save();
+
+    // Add try-catch for notification
+    try {
+      notifyDirector(`📢 Exit Request: Visitor ${visitor.name} wants to exit.`);
+    } catch (notifyError) {
+      console.error("Notification error:", notifyError);
+    }
+
+    res.status(200).json({ message: "Exit request sent", visitor });
+  } catch (error) {
+    console.error("Request exit error:", error);
+    res.status(500).json({ message: "Error requesting exit", error: error.message });
+  }
+};
+
+// ✅ Approve exit
+exports.approveExit = async (req, res) => {
+  try {
+    const visitor = await Visitor.findOne({ phone: req.body.phone });
+    if (!visitor) return res.status(404).json({ message: "Visitor not found" });
+
+    visitor.exitApproved = true;
+    await visitor.save();
+
+    notifyGuard(`✅ Exit Approved: Visitor ${visitor.name} can exit.`);
+    res.status(200).json({ message: "Exit approved", visitor });
+  } catch (error) {
+    res.status(500).json({ message: "Error approving exit", error });
+  }
+};
+
+// ✅ Confirm exit
+exports.confirmExit = async (req, res) => {
+  try {
+    const visitor = await Visitor.findOne({ phone: req.body.phone });
+    if (!visitor) return res.status(404).json({ message: "Visitor not found" });
+
+    if (!visitor.exitApproved) {
+      return res.status(400).json({ message: "Exit not approved yet!" });
+    }
+
+    visitor.hasExited = true;
+    visitor.exitTime = new Date();
+    await visitor.save();
+
+    notifyDirector(`🚪 Visitor ${visitor.name} has exited.`);
+    res.status(200).json({ message: "Exit confirmed", visitor });
+  } catch (error) {
+    res.status(500).json({ message: "Error confirming exit", error });
+  }
+};
+
+// ✅ Delete visitor
+exports.deleteVisitor = async (req, res) => {
+  try {
+    await Visitor.findOneAndDelete({ phone: req.params.phone });
+    res.status(200).json({ message: "Visitor deleted" });
+  } catch (error) {
+    res.status(500).json({ message: "Error deleting visitor", error });
   }
 };
