@@ -1,6 +1,12 @@
 import { useState, useEffect } from 'react';
 import axios from 'axios';
 import { useNotification } from '../context/NotificationContext';
+// Import MUI components
+import { 
+  Box, Typography, CircularProgress, Alert, Grid, Card, 
+  CardContent, CardActions, Button 
+} from '@mui/material';
+import CheckCircleOutlineIcon from '@mui/icons-material/CheckCircleOutline'; // Icon for approve button
 
 function FacultyDashboard() {
   const [students, setStudents] = useState([]);
@@ -8,7 +14,8 @@ function FacultyDashboard() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const { addNotification } = useNotification();
-  const baseUrl = 'http://localhost:5000';
+  // Consider using environment variable like in GuardDashboard
+  const baseUrl = import.meta.env.VITE_API_URL || 'http://localhost:5000'; 
 
   const fetchRequests = async () => {
     try {
@@ -17,20 +24,20 @@ function FacultyDashboard() {
       
       // Fetch pending student exit requests
       const studentResponse = await axios.get(`${baseUrl}/students/pending-exits`);
-      console.log('Student response:', studentResponse.data);
       setStudents(Array.isArray(studentResponse.data) ? studentResponse.data : []);
 
       // Fetch pending visitor exit requests
       const visitorResponse = await axios.get(`${baseUrl}/visitors/pending-exits`);
-      console.log('Visitor response:', visitorResponse.data);
       setVisitors(Array.isArray(visitorResponse.data) ? visitorResponse.data : []);
 
     } catch (err) {
       console.error("Error fetching exit requests:", err);
-      setError(err.response?.data?.message || "Failed to load exit requests");
+      const errorMsg = err.response?.data?.message || "Failed to load exit requests";
+      setError(errorMsg);
       setStudents([]);
       setVisitors([]);
-      addNotification("Failed to fetch exit requests", "error");
+      // Use addNotification for feedback
+      addNotification("Failed to fetch exit requests", "error"); 
     } finally {
       setLoading(false);
     }
@@ -40,101 +47,160 @@ function FacultyDashboard() {
     fetchRequests();
     const intervalId = setInterval(fetchRequests, 30000);
     return () => clearInterval(intervalId);
-  }, []);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []); // Consider adding dependencies if needed, e.g., [baseUrl, addNotification]
 
-  const handleExitApproval = async (id, type) => {
+  const handleExitApproval = async (identifier, type) => { // Use 'identifier' for clarity
     try {
-      if (!id) {
-        throw new Error(`Invalid ${type} ID`);
+      if (!identifier) {
+        throw new Error(`Invalid ${type} identifier`);
       }
 
       const endpoint = `${baseUrl}/${type}s/approve-exit`;
-      const payload = type === 'student' ? { id } : { phone: id };
+      // For students, identifier is _id; for visitors, it's phone
+      const payload = type === 'student' ? { id: identifier } : { phone: identifier }; 
       
       const response = await axios.post(endpoint, payload);
 
       if (response.status === 200) {
-        addNotification(`${type.charAt(0).toUpperCase() + type.slice(1)} exit approved successfully`, 'success');
+        // Use addNotification for success feedback
+        addNotification(`${type.charAt(0).toUpperCase() + type.slice(1)} exit approved successfully`, 'success'); 
         
-        // Update local state
+        // Update local state immediately for better UX
         if (type === 'student') {
-          setStudents(prev => prev.filter(student => student._id !== id));
+          setStudents(prev => prev.filter(student => student._id !== identifier));
         } else {
-          setVisitors(prev => prev.filter(visitor => visitor.phone !== id));
+          setVisitors(prev => prev.filter(visitor => visitor.phone !== identifier));
         }
         
-        // Refresh data
-        fetchRequests();
+        // Optionally, you might not need to call fetchRequests() again immediately
+        // if the local state update is sufficient. Polling will refresh later.
+        // fetchRequests(); 
+      } else {
+         // Handle non-200 success statuses if necessary
+         throw new Error(response.data?.message || `Approval failed with status ${response.status}`);
       }
     } catch (err) {
       console.error(`Error approving ${type} exit:`, err);
       const errorMsg = err.response?.data?.message || 
+                      err.message || // Include error message if no response data
                       `Failed to approve ${type} exit. Please try again.`;
-      addNotification(errorMsg, 'error');
+      // Use addNotification for error feedback
+      addNotification(errorMsg, 'error'); 
     }
   };
 
-  if (loading) return <div className="loading">Loading exit requests...</div>;
-  if (error) return <div className="error">{error}</div>;
+  // Use MUI components for loading and error states
+  if (loading) return <Box sx={{ display: 'flex', justifyContent: 'center', p: 4 }}><CircularProgress /></Box>;
+  if (error) return <Alert severity="error" sx={{ m: 2 }}>{error}</Alert>;
 
   return (
-    <div className="container">
-      <h2>Faculty Dashboard</h2>
+    // Use Box for layout
+    <Box> 
+      <Typography variant="h4" gutterBottom component="h2">
+        Faculty Dashboard - Pending Exit Approvals
+      </Typography>
 
-      <h3>Student Exit Requests ({students.length})</h3>
+      {/* Student Section */}
+      <Typography variant="h5" gutterBottom component="h3">
+        Student Exit Requests ({students.length})
+      </Typography>
       {students.length === 0 ? (
-        <p>No pending student exit requests</p>
+        <Typography sx={{ mb: 3 }}>No pending student exit requests</Typography>
       ) : (
-        <div className="request-list">
+        // Use Grid for responsive layout
+        <Grid container spacing={2} sx={{ mb: 3 }}> 
           {students.map((student) => (
-            <div key={student._id} className="request-card">
-              <div className="request-info">
-                <h4>{student.name}</h4>
-                <p><strong>Student ID:</strong> {student.studentId}</p>
-                <p><strong>Purpose:</strong> {student.purpose}</p>
-                <p><strong>Entry Time:</strong> {new Date(student.entryTime).toLocaleString()}</p>
-                <p><strong>Status:</strong> {student.exitRequested ? 'Exit Requested' : 'Active'}</p>
-              </div>
-              {student.exitRequested && !student.exitApproved && (
-                <button 
-                  onClick={() => handleExitApproval(student._id, 'student')}
-                  className="approve-btn"
-                >
-                  Approve Exit
-                </button>
-              )}
-            </div>
+            // Grid item for each student card
+            <Grid item xs={12} sm={6} md={4} key={student._id}> 
+              {/* Card component */}
+              <Card variant="outlined"> 
+                <CardContent>
+                  <Typography variant="h6" component="div">
+                    {student.name}
+                  </Typography>
+                  <Typography sx={{ mb: 1.5 }} color="text.secondary">
+                    Student ID: {student.studentId}
+                  </Typography>
+                  <Typography variant="body2">
+                    Purpose: {student.purpose}
+                  </Typography>
+                  <Typography variant="caption" display="block" color="text.secondary">
+                    Entry: {new Date(student.entryTime).toLocaleString()}
+                  </Typography>
+                   <Typography variant="body2" sx={{ mt: 1, fontWeight: 'bold' }}>
+                     Status: {student.exitRequested ? 'Exit Requested' : 'Active'}
+                   </Typography>
+                </CardContent>
+                {/* Only show button if exit is requested and not yet approved */}
+                {student.exitRequested && !student.exitApproved && (
+                  <CardActions>
+                    <Button 
+                      size="small" 
+                      variant="contained" 
+                      color="primary"
+                      startIcon={<CheckCircleOutlineIcon />}
+                      onClick={() => handleExitApproval(student._id, 'student')}
+                    >
+                      Approve Exit
+                    </Button>
+                  </CardActions>
+                )}
+              </Card>
+            </Grid>
           ))}
-        </div>
+        </Grid>
       )}
 
-      <h3>Visitor Exit Requests ({visitors.length})</h3>
+      {/* Visitor Section */}
+      <Typography variant="h5" gutterBottom component="h3">
+        Visitor Exit Requests ({visitors.length})
+      </Typography>
       {visitors.length === 0 ? (
-        <p>No pending visitor exit requests</p>
+        <Typography sx={{ mb: 3 }}>No pending visitor exit requests</Typography>
       ) : (
-        <div className="request-list">
+        <Grid container spacing={2} sx={{ mb: 3 }}>
           {visitors.map((visitor) => (
-            <div key={visitor._id || visitor.phone} className="request-card">
-              <div className="request-info">
-                <h4>{visitor.name}</h4>
-                <p><strong>Phone:</strong> {visitor.phone}</p>
-                <p><strong>Purpose:</strong> {visitor.purpose}</p>
-                <p><strong>Entry Time:</strong> {new Date(visitor.entryTime).toLocaleString()}</p>
-                <p><strong>Status:</strong> {visitor.exitRequested ? 'Exit Requested' : 'Active'}</p>
-              </div>
-              {visitor.exitRequested && !visitor.exitApproved && (
-                <button 
-                  onClick={() => handleExitApproval(visitor.phone, 'visitor')}
-                  className="approve-btn"
-                >
-                  Approve Exit
-                </button>
-              )}
-            </div>
+            // Use phone as key if _id might be missing temporarily, but prefer _id
+            <Grid item xs={12} sm={6} md={4} key={visitor._id || visitor.phone}> 
+              <Card variant="outlined">
+                <CardContent>
+                  <Typography variant="h6" component="div">
+                    {visitor.name}
+                  </Typography>
+                  <Typography sx={{ mb: 1.5 }} color="text.secondary">
+                    Phone: {visitor.phone}
+                  </Typography>
+                  <Typography variant="body2">
+                    Purpose: {visitor.purpose}
+                  </Typography>
+                  <Typography variant="caption" display="block" color="text.secondary">
+                    Entry: {new Date(visitor.entryTime).toLocaleString()}
+                  </Typography>
+                  <Typography variant="body2" sx={{ mt: 1, fontWeight: 'bold' }}>
+                    Status: {visitor.exitRequested ? 'Exit Requested' : 'Active'}
+                  </Typography>
+                </CardContent>
+                {visitor.exitRequested && !visitor.exitApproved && (
+                  <CardActions>
+                    <Button 
+                      size="small" 
+                      variant="contained" 
+                      color="primary"
+                      startIcon={<CheckCircleOutlineIcon />}
+                      // Pass phone number as the identifier for visitors
+                      onClick={() => handleExitApproval(visitor.phone, 'visitor')} 
+                    >
+                      Approve Exit
+                    </Button>
+                  </CardActions>
+                )}
+              </Card>
+            </Grid>
           ))}
-        </div>
+        </Grid>
       )}
-    </div>
+    </Box>
   );
 }
 

@@ -1,152 +1,140 @@
 import { useState } from 'react';
 import axios from 'axios';
+import { useNavigate } from 'react-router-dom';
+import { useNotification } from '../context/NotificationContext'; // Import notification hook
+// Import MUI components
+import { 
+  Box, Typography, TextField, Button, CircularProgress, Alert 
+} from '@mui/material';
 
 function EntryForm() {
-  const [formData, setFormData] = useState({
-    name: '',
-    phone: '',
-    purpose: ''
-  });
-  const [errors, setErrors] = useState({});
-  const [loading, setLoading] = useState(false);
-  const [success, setSuccess] = useState(null);
+  const [name, setName] = useState('');
+  const [phone, setPhone] = useState(''); // Added phone state
+  const [purpose, setPurpose] = useState('');
+  const [loading, setLoading] = useState(false); // State for loading indicator
+  const [error, setError] = useState(null); // State for error message
+  const navigate = useNavigate();
+  const { addNotification } = useNotification(); // Get notification function
+  const baseUrl = import.meta.env.VITE_API_URL || 'http://localhost:5000';
 
-  const validateForm = () => {
-    const newErrors = {};
-    
-    if (!formData.name.trim()) {
-      newErrors.name = 'Name is required';
-    }
-    
-    if (!formData.phone) {
-      newErrors.phone = 'Phone number is required';
-    } else if (!/^\d{10}$/.test(formData.phone)) {
-      newErrors.phone = 'Phone number must be 10 digits';
-    }
-    
-    if (!formData.purpose.trim()) {
-      newErrors.purpose = 'Purpose is required';
-    }
-    
-    setErrors(newErrors);
-    return Object.keys(newErrors).length === 0;
-  };
+  const handleSubmit = async (event) => {
+    event.preventDefault();
+    setLoading(true); // Start loading
+    setError(null); // Clear previous errors
 
-  const handleChange = (e) => {
-    const { name, value } = e.target;
-    setFormData({
-      ...formData,
-      [name]: value
-    });
-    
-    // Clear error when user starts typing
-    if (errors[name]) {
-      setErrors({
-        ...errors,
-        [name]: null
-      });
-    }
-  };
-
-  const handleSubmit = async (e) => {
-    e.preventDefault();
-    
-    if (!validateForm()) {
-      return;
-    }
-    
     try {
-      setLoading(true);
-      const response = await axios.post('http://localhost:5000/visitors/entry', formData);
-      setSuccess(response.data.message);
-      
-      // Reset form after successful submission
-      setFormData({
-        name: '',
-        phone: '',
-        purpose: ''
+      const response = await axios.post(`${baseUrl}/visitors/entry`, { 
+        name, 
+        phone, // Include phone in payload
+        purpose 
       });
       
-      setLoading(false);
-      
-      // Clear success message after 5 seconds
-      setTimeout(() => {
-        setSuccess(null);
-      }, 5000);
-    } catch (error) {
-      setLoading(false);
-      console.error('Error submitting entry request:', error);
-      
-      if (error.response && error.response.data && error.response.data.message) {
-        alert(error.response.data.message);
+      if (response.status === 201) {
+        // Use notification hook for success message
+        addNotification('Visitor entry registered successfully! Exit requested automatically.', 'success'); 
+        // Optionally clear the form or navigate away
+        setName('');
+        setPhone('');
+        setPurpose('');
+        // navigate('/'); // Example: navigate back home after successful entry
       } else {
-        alert('Error submitting entry request. Please try again.');
+         // Handle unexpected success status
+         throw new Error(response.data?.message || `Registration failed with status ${response.status}`);
       }
+    } catch (err) {
+      console.error("Error registering visitor:", err);
+      const errorMsg = err.response?.data?.message || err.message || "Failed to register visitor entry.";
+      setError(errorMsg); // Set error state to display Alert
+      // Use notification hook for error message
+      addNotification(errorMsg, 'error'); 
+    } finally {
+      setLoading(false); // Stop loading regardless of outcome
     }
   };
 
   return (
-    <div className="container">
-      <h2>Visitor Entry Form</h2>
+    // Use Box for layout and styling
+    <Box 
+      component="form" // Render as a form element
+      onSubmit={handleSubmit} 
+      sx={{
+        display: 'flex',
+        flexDirection: 'column',
+        alignItems: 'center',
+        gap: 2, // Spacing between elements
+        p: 3, // Padding
+        maxWidth: '500px', // Limit form width
+        margin: 'auto', // Center the form
+        mt: 4, // Margin top
+        border: '1px solid', // Optional border
+        borderColor: 'grey.300', // Optional border color
+        borderRadius: 1, // Optional border radius
+        boxShadow: 1 // Optional subtle shadow
+      }}
+    >
+      <Typography variant="h4" component="h2" gutterBottom>
+        Visitor Entry Form
+      </Typography>
       
-      {success && (
-        <div className="success-message">
-          {success}
-        </div>
-      )}
+      {/* Display error Alert if error exists */}
+      {error && <Alert severity="error" sx={{ width: '100%' }}>{error}</Alert>}
+
+      {/* Use TextField for inputs */}
+      <TextField 
+        label="Name" 
+        variant="outlined" 
+        value={name} 
+        onChange={(e) => setName(e.target.value)} 
+        required 
+        fullWidth // Take full width of container
+      />
+      <TextField 
+        label="Phone Number" 
+        variant="outlined" 
+        type="tel" // Use tel type for phone numbers
+        value={phone} 
+        onChange={(e) => setPhone(e.target.value)} 
+        required 
+        fullWidth 
+      />
+      <TextField 
+        label="Purpose of Visit" 
+        variant="outlined" 
+        value={purpose} 
+        onChange={(e) => setPurpose(e.target.value)} 
+        required 
+        fullWidth 
+        multiline // Allow multiple lines for purpose
+        rows={3} 
+      />
       
-      <form onSubmit={handleSubmit} className="entry-form">
-        <div className="form-group">
-          <label htmlFor="name">Full Name</label>
-          <input 
-            type="text" 
-            id="name"
-            name="name"
-            placeholder="Enter your full name" 
-            value={formData.name} 
-            onChange={handleChange}
-            className={errors.name ? 'error' : ''}
-          />
-          {errors.name && <span className="error-message">{errors.name}</span>}
-        </div>
-        
-        <div className="form-group">
-          <label htmlFor="phone">Phone Number</label>
-          <input 
-            type="tel" 
-            id="phone"
-            name="phone"
-            placeholder="Enter your 10-digit phone number" 
-            value={formData.phone} 
-            onChange={handleChange}
-            className={errors.phone ? 'error' : ''}
-          />
-          {errors.phone && <span className="error-message">{errors.phone}</span>}
-        </div>
-        
-        <div className="form-group">
-          <label htmlFor="purpose">Purpose of Visit</label>
-          <input 
-            type="text" 
-            id="purpose"
-            name="purpose"
-            placeholder="Enter purpose of visit" 
-            value={formData.purpose} 
-            onChange={handleChange}
-            className={errors.purpose ? 'error' : ''}
-          />
-          {errors.purpose && <span className="error-message">{errors.purpose}</span>}
-        </div>
-        
-        <button 
+      {/* Use Button for submission, show CircularProgress when loading */}
+      <Box sx={{ position: 'relative', width: '100%' }}>
+        <Button 
           type="submit" 
-          className="submit-btn"
-          disabled={loading}
+          variant="contained" 
+          color="primary" 
+          disabled={loading} // Disable button while loading
+          fullWidth
+          sx={{ mt: 2 }} // Add margin top to the button
         >
-          {loading ? 'Submitting...' : 'Submit'}
-        </button>
-      </form>
-    </div>
+          Register Entry
+        </Button>
+        {loading && (
+          <CircularProgress
+            size={24}
+            sx={{
+              color: 'primary.main',
+              position: 'absolute',
+              top: '50%',
+              left: '50%',
+              marginTop: '-12px', // Center vertically
+              marginLeft: '-12px', // Center horizontally
+            }}
+          />
+        )}
+      </Box>
+    </Box>
   );
 }
 

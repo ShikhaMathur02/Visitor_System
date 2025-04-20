@@ -9,7 +9,9 @@ import GuardDashboard from './components/GuardDashboard';
 import FacultyDashboard from './components/FacultyDashboard';
 import QRScanner from './components/QRScanner';
 import { NotificationProvider, useNotification } from './context/NotificationContext';
-import './index.css';
+import Layout from './components/Layout'; // Import the new Layout
+import { ThemeProvider, createTheme } from '@mui/material/styles'; // Import ThemeProvider
+import CssBaseline from '@mui/material/CssBaseline'; // Normalize CSS
 
 // Create socket instance with reconnection options
 const baseUrl = import.meta.env.VITE_API_URL || 'http://localhost:5000';
@@ -18,6 +20,19 @@ const socket = io(baseUrl, {
   reconnectionDelay: 1000,
   timeout: 10000
 });
+
+// Define a basic theme (optional, but good for customization)
+const theme = createTheme({
+  palette: {
+    primary: {
+      main: '#1976d2', // Example primary color
+    },
+    secondary: {
+      main: '#dc004e', // Example secondary color
+    },
+  },
+});
+
 
 function AppContent() {
   const { addNotification } = useNotification();
@@ -34,7 +49,7 @@ function AppContent() {
     socket.on('connect_error', (error) => {
       console.error('Socket connection error:', error);
       setSocketConnected(false);
-      addNotification('Failed to connect to notification server. Some features may be limited.', 'error');
+      addNotification('Failed to connect to notification server.', 'error');
     });
 
     // Handle disconnection
@@ -49,24 +64,14 @@ function AppContent() {
 
     // Listen for director notifications
     socket.on('directorNotification', (data) => {
-      // Fixed: Safely handle data structure with default values
       const notificationData = typeof data === 'object' ? data : { message: String(data) };
-      const message = notificationData.message || 'New notification';
-      const type = notificationData.type || 'info';
-      
-      // Don't rely on timestamp from the server
-      addNotification(message, type);
+      addNotification(notificationData.message || 'New notification', notificationData.type || 'info');
     });
 
     // Listen for guard notifications
     socket.on('guardNotification', (data) => {
-      // Fixed: Safely handle data structure with default values
       const notificationData = typeof data === 'object' ? data : { message: String(data) };
-      const message = notificationData.message || 'New notification';
-      const type = notificationData.type || 'info';
-      
-      // Don't rely on timestamp from the server
-      addNotification(message, type);
+      addNotification(notificationData.message || 'New notification', notificationData.type || 'info');
     });
 
     return () => {
@@ -78,31 +83,42 @@ function AppContent() {
     };
   }, [addNotification]);
 
+
   return (
-    <Router>
+    // Router is now outside, wrapping ThemeProvider
+    <> 
       {!socketConnected && (
-        <div className="socket-status-banner">
-          Notification service disconnected. Some features may be limited.
+        <div className="socket-status-banner"> {/* Keep or replace with MUI Snackbar */}
+          Notification service disconnected.
         </div>
       )}
+      {/* Routes are now nested within the Layout */}
       <Routes>
-        <Route path="/" element={<Home />} />
-        <Route path="/entry" element={<EntryForm />} />
-        <Route path="/guard" element={<GuardPanel />} />
-        <Route path="/guard/dashboard" element={<GuardDashboard />} />
-        <Route path="/guard/scanner" element={<QRScanner />} />
-        <Route path="/faculty" element={<FacultyPanel />} />
-        <Route path="/faculty/dashboard" element={<FacultyDashboard />} />
+        <Route element={<Layout />}> {/* Wrap routes with Layout */}
+          <Route path="/" element={<Home />} />
+          <Route path="/entry" element={<EntryForm />} />
+          <Route path="/guard" element={<GuardPanel />} />
+          <Route path="/guard/dashboard" element={<GuardDashboard />} />
+          <Route path="/guard/scanner" element={<QRScanner />} />
+          <Route path="/faculty" element={<FacultyPanel />} />
+          <Route path="/faculty/dashboard" element={<FacultyDashboard />} />
+          {/* Add other routes as needed */}
+        </Route>
       </Routes>
-    </Router>
+    </>
   );
 }
 
 function App() {
   return (
-    <NotificationProvider>
-      <AppContent />
-    </NotificationProvider>
+    <ThemeProvider theme={theme}> {/* Apply the theme */}
+      <CssBaseline /> {/* Apply baseline styles */}
+      <NotificationProvider> {/* Keep Notification context */}
+         <Router> {/* Router should wrap everything */}
+           <AppContent />
+         </Router>
+      </NotificationProvider>
+    </ThemeProvider>
   );
 }
 

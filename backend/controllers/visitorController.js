@@ -61,11 +61,28 @@ exports.getVisitorByPhone = async (req, res) => {
 // ✅ Register visitor entry
 exports.visitorEntry = async (req, res) => {
   try {
-    const visitor = new Visitor(req.body);
-    await visitor.save();
-    res.status(201).json({ message: "Visitor entry registered", visitor });
+    // Create a new visitor object from the request body
+    const visitor = new Visitor(req.body); 
+    
+    // *** Automatically set exitRequested to true upon entry ***
+    visitor.exitRequested = true; 
+
+    // Save the new visitor document to the database
+    await visitor.save(); 
+
+    // *** Notify the director immediately since exit is requested ***
+    try {
+      notifyDirector(`📢 Exit Request (Auto): Visitor ${visitor.name} entered and wants to exit.`);
+    } catch (notifyError) {
+      console.error("Notification error during entry:", notifyError);
+    }
+
+    // Send a success response back to the client
+    res.status(201).json({ message: "Visitor entry registered, exit requested automatically", visitor }); 
   } catch (error) {
-    res.status(500).json({ message: "Error registering entry", error });
+    // Handle potential errors during the process
+    console.error("Error registering visitor entry:", error); 
+    res.status(500).json({ message: "Error registering entry", error: error.message });
   }
 };
 
