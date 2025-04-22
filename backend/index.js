@@ -1,63 +1,67 @@
-require("dotenv").config();
-const express = require("express");
-const cors = require("cors");
-const http = require("http");
-const { Server } = require("socket.io");
-const connectDB = require("./config/db");
-const visitorRoutes = require("./routes/visitorRoutes");
-const studentRoutes = require("./routes/studentRoutes");
+require('dotenv').config(); // Load environment variables first
+const express = require('express');
+const mongoose = require('mongoose');
+const cors = require('cors');
+const http = require('http'); // Required for Socket.IO
+const { Server } = require("socket.io"); // Socket.IO server
+// Remove setupNotifications import if you're not using it
+// const { setupNotifications } = require('./utils/notifications');
 
-// Initialize Express app
+// Fix case sensitivity in route imports
+const visitorRoutes = require('./routes/visitorroutes');
+const studentRoutes = require('./routes/studentroutes');
+const statsRoutes = require('./routes/statsRoutes');
+
 const app = express();
-const server = http.createServer(app);
+const server = http.createServer(app); // Create HTTP server
 
-// Connect to MongoDB
-connectDB();
-
-// Initialize Socket.io
-const io = new Server(server, {
-  cors: {
-    origin: process.env.FRONTEND_URL || "http://localhost:5173",
-    methods: ["GET", "POST"]
-  }
-});
+// Configure CORS
+const corsOptions = {
+  origin: process.env.FRONTEND_URL || 'http://localhost:5173',
+  optionsSuccessStatus: 200,
+  methods: ["GET", "POST"],
+  credentials: true
+};
+app.use(cors(corsOptions));
 
 // Middleware
-app.use(cors({
-  origin: process.env.FRONTEND_URL || "http://localhost:5173"
-}));
-app.use(express.json());
+app.use(express.json()); // Parse JSON bodies
+
+// Database Connection
+mongoose.connect(process.env.MONGODB_URI)
+  .then(() => console.log('MongoDB Connected'))
+  .catch(err => console.error('MongoDB connection error:', err));
+
+// Setup Socket.IO - only define io once
+const io = new Server(server, {
+  cors: corsOptions // Apply CORS options to Socket.IO
+});
+
+// Make io available to other modules
+app.set('io', io);
+
+// Export io for use in other files (like notifications.js)
+exports.io = io;
+
+// Socket.IO connection handling
+io.on('connection', (socket) => {
+  console.log('New client connected');
+  
+  socket.on('disconnect', () => {
+    console.log('Client disconnected');
+  });
+});
 
 // Routes
-app.use("/visitors", visitorRoutes);
-app.use("/students", studentRoutes);
+app.use('/visitors', visitorRoutes);
+app.use('/students', studentRoutes);
+app.use('/stats', statsRoutes);
 
-// Socket.io connection
-io.on("connection", (socket) => {
-  console.log("Client connected:", socket.id);
-
-  socket.on("disconnect", () => {
-    console.log("Client disconnected:", socket.id);
-  });
+// Basic route
+app.get('/', (req, res) => {
+  res.send('Visitor Management System Backend Running');
 });
 
-// Make io available globally
-app.set("io", io);
-
-// Error handling middleware
-app.use((err, req, res, next) => {
-  console.error(err.stack);
-  res.status(500).json({
-    message: "Something went wrong!",
-    error: process.env.NODE_ENV === "development" ? err.message : "Server error"
-  });
-});
-
-// Start server
+// Start Server
 const PORT = process.env.PORT || 5000;
-server.listen(PORT, () => {
-  console.log(`Server running on port ${PORT}`);
-});
-
-// Export for testing
-module.exports = { app, server, io };
+server.listen(PORT, () => console.log(`Server running on port ${PORT}`));

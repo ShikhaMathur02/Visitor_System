@@ -155,3 +155,29 @@ exports.deleteVisitor = async (req, res) => {
     res.status(500).json({ message: "Error deleting visitor", error });
   }
 };
+
+/**
+ * Get all visitor records for the current day
+ * @route GET /visitors/daily-records
+ */
+exports.getDailyVisitorRecords = async (req, res) => {
+  try {
+    const today = new Date();
+    today.setHours(0, 0, 0, 0); // Start of today
+
+    const tomorrow = new Date(today);
+    tomorrow.setDate(today.getDate() + 1); // Start of tomorrow
+
+    const dailyRecords = await Visitor.find({
+      entryTime: {
+        $gte: today,
+        $lt: tomorrow
+      }
+    }).sort({ entryTime: -1 }); // Sort by most recent entry first
+
+    res.status(200).json(dailyRecords);
+  } catch (error) {
+    console.error("Error fetching daily visitor records:", error);
+    res.status(500).json({ message: "Error fetching daily visitor records", error: error.message });
+  }
+};

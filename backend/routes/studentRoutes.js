@@ -1,30 +1,34 @@
-const express = require('express');
+const express = require("express");
 const router = express.Router();
-const {
-    getAllStudents,
-    getStudentById,
-    studentEntry,
-    requestExit,
-    approveExit,
-    confirmExit,
-    deleteStudent,
-    getPendingExits,
-    getApprovedExits
-} = require('../controllers/studentController');
+const studentController = require("../controllers/studentController");
 
-// Place specific routes before parameterized routes
-router.get('/pending-exits', getPendingExits);
-router.get('/approved-exits', getApprovedExits);
-router.get('/', getAllStudents);
+// Route to get all student records for the current day
+router.get("/daily-records", studentController.getDailyStudentRecords); 
 
-// Entry and exit routes
-router.post('/entry', studentEntry);
-router.post('/request-exit', requestExit);
-router.post('/approve-exit', approveExit);
-router.post('/confirm-exit', confirmExit);
+// Route for student entry
+router.post("/entry", studentController.studentEntry);
 
-// Parameterized routes should come last
-router.get('/:id', getStudentById);
-router.delete('/:id', deleteStudent);
+// Route to request exit (using QR or manual)
+// Changed from requestStudentExit to requestExit to match the controller function name
+router.post("/request-exit", studentController.requestExit);
+
+// Route for faculty to approve exit
+// Should be approveExit instead of approveStudentExit
+router.post("/approve-exit", studentController.approveExit);
+
+// Route for guard to confirm exit
+// Should be confirmExit instead of confirmStudentExit
+router.post("/confirm-exit", studentController.confirmExit);
+
+// Route to get pending exit requests for faculty
+// Should be getPendingExits instead of getPendingStudentExits
+router.get("/pending-exits", studentController.getPendingExits);
+
+// Route to get approved exit requests for guards
+// Should be getApprovedExits instead of getApprovedStudentExits
+router.get("/approved-exits", studentController.getApprovedExits);
+
+// Route to get a specific student by ID (if needed)
+router.get("/:id", studentController.getStudentById);
 
 module.exports = router;

@@ -15,7 +15,7 @@ const drawerWidth = 240;
 
 function Layout() {
   const [mobileOpen, setMobileOpen] = useState(false);
-  const [notificationCount, setNotificationCount] = useState(5); // Example count
+  const [notificationCount] = useState(5); // Example count
 
   const handleDrawerToggle = () => {
     setMobileOpen(!mobileOpen);

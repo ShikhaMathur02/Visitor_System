@@ -34,7 +34,18 @@ const notifyGuard = (message, type = 'info') => {
   }
 };
 
+const setupNotifications = (io) => {
+  io.on('connection', (socket) => {
+    console.log('New client connected for notifications');
+    
+    socket.on('disconnect', () => {
+      console.log('Notification client disconnected');
+    });
+  });
+};
+
 module.exports = {
   notifyDirector,
-  notifyGuard
+  notifyGuard,
+  setupNotifications  // Make sure to export the function
 };

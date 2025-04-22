@@ -1,29 +1,36 @@
 const express = require("express");
-const {
-  getAllVisitors,
-  getVisitorByPhone,
-  visitorEntry,
-  requestExit,
-  approveExit,
-  confirmExit,
-  deleteVisitor,
-  getPendingExits,    // Add this import
-  getApprovedExits    // Add this import
-} = require("../controllers/visitorController");
-
 const router = express.Router();
+const visitorController = require("../controllers/visitorController");
 
-// Place specific routes before parameterized routes
-router.get("/pending-exits", getPendingExits);     // Use imported controller function
-router.get("/approved-exits", getApprovedExits);   // Use imported controller function
-router.get("/", getAllVisitors);
+// --- Specific Routes First ---
 
-// Then add other routes
-router.get("/:phone", getVisitorByPhone);
-router.post("/entry", visitorEntry);
-router.post("/request-exit", requestExit);
-router.post("/approve-exit", approveExit);
-router.post("/confirm-exit", confirmExit);
-router.delete("/:phone", deleteVisitor);
+// Route to get all visitor records for the current day
+router.get("/daily-records", visitorController.getDailyVisitorRecords); 
+
+// Route to get pending exit requests for faculty
+router.get("/pending-exits", visitorController.getPendingExits);
+
+// Route to get approved exit requests for guards
+router.get("/approved-exits", visitorController.getApprovedExits);
+
+// Route for visitor entry (automatically requests exit)
+// Note: Ensure visitorEntry in the controller handles the exit request logic
+router.post("/entry", visitorController.visitorEntry); 
+
+// Route for faculty to approve exit - Fixed function name
+router.post("/approve-exit", visitorController.approveExit);
+
+// Route for guard to confirm exit - Fixed function name
+router.post("/confirm-exit", visitorController.confirmExit);
+
+// --- Parameterized Routes Last ---
+
+// Route to get a specific visitor by phone (if needed)
+router.get("/phone/:phone", visitorController.getVisitorByPhone); 
+
+// --- Optional Routes (Commented Out) ---
+// router.get("/", visitorController.getAllVisitors); 
+// router.delete("/:phone", visitorController.deleteVisitor);
+
 
 module.exports = router;

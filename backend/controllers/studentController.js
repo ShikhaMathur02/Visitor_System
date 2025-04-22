@@ -275,3 +275,29 @@ exports.getPendingExits = async (req, res) => {
     });
   }
 };
+
+/**
+ * Get all student records for the current day
+ * @route GET /students/daily-records
+ */
+exports.getDailyStudentRecords = async (req, res) => {
+  try {
+    const today = new Date();
+    today.setHours(0, 0, 0, 0); // Start of today
+
+    const tomorrow = new Date(today);
+    tomorrow.setDate(today.getDate() + 1); // Start of tomorrow
+
+    const dailyRecords = await Student.find({
+      entryTime: {
+        $gte: today,
+        $lt: tomorrow
+      }
+    }).sort({ entryTime: -1 }); // Sort by most recent entry first
+
+    res.status(200).json(dailyRecords);
+  } catch (error) {
+    console.error("Error fetching daily student records:", error);
+    res.status(500).json({ message: "Error fetching daily student records", error: error.message });
+  }
+};

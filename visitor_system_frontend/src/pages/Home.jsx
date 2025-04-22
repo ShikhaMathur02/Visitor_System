@@ -4,14 +4,15 @@ import { Link as RouterLink } from 'react-router-dom'; // Use alias to avoid con
 import { 
   Container, Box, Typography, Button, Grid, Paper 
 } from '@mui/material';
-import LoginIcon from '@mui/icons-material/Login'; // Example icon
-import SecurityIcon from '@mui/icons-material/Security'; // Example icon
-import SchoolIcon from '@mui/icons-material/School'; // Example icon
+import LoginIcon from '@mui/icons-material/Login'; // Visitor Entry icon
+import AssignmentIndIcon from '@mui/icons-material/AssignmentInd'; // Student Entry icon
+import SecurityIcon from '@mui/icons-material/Security'; // Guard Panel icon
+import SchoolIcon from '@mui/icons-material/School'; // Faculty Panel icon
 
 function Home() {
   return (
     // Use Container to center and manage max width
-    <Container maxWidth="md" sx={{ mt: 4, mb: 4 }}> 
+    <Container maxWidth="lg" sx={{ mt: 4, mb: 4 }}> {/* Increased maxWidth */}
       <Paper elevation={3} sx={{ p: 4, textAlign: 'center' }}> {/* Add Paper for background/elevation */}
         <Typography variant="h3" component="h1" gutterBottom>
           Welcome to the Visitor Management System
@@ -22,7 +23,8 @@ function Home() {
         
         {/* Use Grid to layout the navigation buttons */}
         <Grid container spacing={3} justifyContent="center">
-          <Grid item xs={12} sm={4}>
+          {/* Visitor Entry Button */}
+          <Grid item xs={12} sm={6} md={3}> {/* Adjusted grid size */}
             <Button 
               component={RouterLink} // Use RouterLink for navigation
               to="/entry" 
@@ -31,11 +33,28 @@ function Home() {
               size="large"
               startIcon={<LoginIcon />}
               fullWidth // Make button take full grid item width
+              sx={{ height: '100%' }} // Make buttons same height
             >
               Visitor Entry
             </Button>
           </Grid>
-          <Grid item xs={12} sm={4}>
+           {/* Student Entry Button */}
+           <Grid item xs={12} sm={6} md={3}> {/* Adjusted grid size */}
+            <Button 
+              component={RouterLink} 
+              to="/student-entry" 
+              variant="contained" 
+              color="success" // Different color for distinction
+              size="large"
+              startIcon={<AssignmentIndIcon />}
+              fullWidth
+              sx={{ height: '100%' }} 
+            >
+              Student Entry
+            </Button>
+          </Grid>
+          {/* Guard Panel Button */}
+          <Grid item xs={12} sm={6} md={3}> {/* Adjusted grid size */}
             <Button 
               component={RouterLink} 
               to="/guard" 
@@ -44,11 +63,13 @@ function Home() {
               size="large"
               startIcon={<SecurityIcon />}
               fullWidth
+              sx={{ height: '100%' }} 
             >
               Guard Panel
             </Button>
           </Grid>
-          <Grid item xs={12} sm={4}>
+          {/* Faculty Panel Button */}
+          <Grid item xs={12} sm={6} md={3}> {/* Adjusted grid size */}
             <Button 
               component={RouterLink} 
               to="/faculty" 
@@ -57,6 +78,7 @@ function Home() {
               size="large"
               startIcon={<SchoolIcon />}
               fullWidth
+              sx={{ height: '100%' }} 
             >
               Faculty Panel
             </Button>

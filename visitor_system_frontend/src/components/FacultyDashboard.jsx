@@ -2,204 +2,416 @@ import { useState, useEffect } from 'react';
 import axios from 'axios';
 import { useNotification } from '../context/NotificationContext';
 // Import MUI components
-import { 
-  Box, Typography, CircularProgress, Alert, Grid, Card, 
-  CardContent, CardActions, Button 
+import {
+  Box, Typography, CircularProgress, Alert, Grid, Card,
+  CardContent, CardActions, Button, Paper, Stack, TextField, // Added TextField for search
+  FormControl, InputLabel, Select, MenuItem // Added for filtering
 } from '@mui/material';
-import CheckCircleOutlineIcon from '@mui/icons-material/CheckCircleOutline'; // Icon for approve button
+import { DataGrid } from '@mui/x-data-grid'; // Import DataGrid
+import CheckCircleOutlineIcon from '@mui/icons-material/CheckCircleOutline';
+import PeopleAltIcon from '@mui/icons-material/PeopleAlt';
+import SchoolIcon from '@mui/icons-material/School';
+import HourglassEmptyIcon from '@mui/icons-material/HourglassEmpty';
+import CheckCircleIcon from '@mui/icons-material/CheckCircle';
+import MeetingRoomIcon from '@mui/icons-material/MeetingRoom';
+import ExitToAppIcon from '@mui/icons-material/ExitToApp';
+import SearchIcon from '@mui/icons-material/Search'; // Import Search Icon
+import RefreshIcon from '@mui/icons-material/Refresh';
+
+// Helper component for Stats Card (keep as is)
+const StatCard = ({ title, value, icon, color = "text.secondary" }) => (
+  <Paper elevation={2} sx={{ p: 2, textAlign: 'center', flexGrow: 1 }}>
+    <Box sx={{ color: color, mb: 1 }}>{icon}</Box>
+    <Typography variant="h6">{value}</Typography>
+    <Typography variant="body2" color="text.secondary">{title}</Typography>
+  </Paper>
+);
+
 
 function FacultyDashboard() {
-  const [students, setStudents] = useState([]);
-  const [visitors, setVisitors] = useState([]);
+  const [pendingStudents, setPendingStudents] = useState([]); // Renamed from students
+  const [pendingVisitors, setPendingVisitors] = useState([]); // Renamed from visitors
+  const [allRecords, setAllRecords] = useState([]); // State for combined daily records
+  const [filteredRecords, setFilteredRecords] = useState([]); // State for filtered/searched records
+  const [stats, setStats] = useState(null);
   const [loading, setLoading] = useState(true);
+  const [statsLoading, setStatsLoading] = useState(true);
+  const [recordsLoading, setRecordsLoading] = useState(true); // Loading state for all records table
   const [error, setError] = useState(null);
+  const [searchTerm, setSearchTerm] = useState(''); // State for search input
+  const [filterType, setFilterType] = useState('all'); // State for filter dropdown ('all', 'visitor', 'student')
   const { addNotification } = useNotification();
-  // Consider using environment variable like in GuardDashboard
-  const baseUrl = import.meta.env.VITE_API_URL || 'http://localhost:5000'; 
+  const baseUrl = import.meta.env.VITE_API_URL || 'http://localhost:5000';
 
+  // Fetch pending exit requests (keep existing logic)
   const fetchRequests = async () => {
     try {
-      setLoading(true);
-      setError(null);
-      
       // Fetch pending student exit requests
       const studentResponse = await axios.get(`${baseUrl}/students/pending-exits`);
-      setStudents(Array.isArray(studentResponse.data) ? studentResponse.data : []);
+      setPendingStudents(Array.isArray(studentResponse.data) ? studentResponse.data : []);
 
       // Fetch pending visitor exit requests
       const visitorResponse = await axios.get(`${baseUrl}/visitors/pending-exits`);
-      setVisitors(Array.isArray(visitorResponse.data) ? visitorResponse.data : []);
+      setPendingVisitors(Array.isArray(visitorResponse.data) ? visitorResponse.data : []);
 
     } catch (err) {
       console.error("Error fetching exit requests:", err);
       const errorMsg = err.response?.data?.message || "Failed to load exit requests";
       setError(errorMsg);
-      setStudents([]);
-      setVisitors([]);
-      // Use addNotification for feedback
-      addNotification("Failed to fetch exit requests", "error"); 
-    } finally {
-      setLoading(false);
+      setPendingStudents([]);
+      setPendingVisitors([]);
+      addNotification("Failed to fetch exit requests", "error");
     }
+  };
+
+  // Fetch daily statistics (keep existing logic)
+  const fetchStats = async () => {
+    try {
+      setStatsLoading(true);
+      const response = await axios.get(`${baseUrl}/stats/today`);
+      setStats(response.data);
+    } catch (err) {
+      console.error("Error fetching stats:", err);
+      addNotification("Failed to load dashboard statistics", "error");
+    } finally {
+      setStatsLoading(false);
+    }
+  };
+
+  // Fetch all daily records (New Function)
+  const fetchAllDailyRecords = async () => {
+    setRecordsLoading(true);
+    try {
+      const [visitorRes, studentRes] = await Promise.all([
+        axios.get(`${baseUrl}/visitors/daily-records`),
+        axios.get(`${baseUrl}/students/daily-records`)
+      ]);
+
+      // Log the responses to check what's coming from the API
+      console.log('Visitors data:', visitorRes.data);
+      console.log('Students data:', studentRes.data);
+
+      const visitorsData = (Array.isArray(visitorRes.data) ? visitorRes.data : []).map(v => ({ ...v, type: 'visitor', id: `v-${v._id}` }));
+      const studentsData = (Array.isArray(studentRes.data) ? studentRes.data : []).map(s => ({ ...s, type: 'student', id: `s-${s._id}` }));
+
+      const combinedRecords = [...visitorsData, ...studentsData];
+      // Sort by entry time descending by default
+      combinedRecords.sort((a, b) => new Date(b.entryTime) - new Date(a.entryTime));
+
+      console.log('Combined records:', combinedRecords); // Log the combined data
+
+      setAllRecords(combinedRecords);
+      setFilteredRecords(combinedRecords); // Initialize filtered records
+
+    } catch (err) {
+      console.error("Error fetching daily records:", err);
+      addNotification("Failed to load daily records", "error");
+      setAllRecords([]);
+      setFilteredRecords([]);
+    } finally {
+      setRecordsLoading(false);
+    }
+  };
+
+
+  // Combined initial load and polling
+  const loadData = async () => {
+     setLoading(true); // Set main loading true for initial combined load
+     // Fetch pending requests, stats, and all daily records
+     await Promise.all([fetchRequests(), fetchStats(), fetchAllDailyRecords()]);
+     setLoading(false); // Set main loading false after all complete
   };
 
   useEffect(() => {
-    fetchRequests();
-    const intervalId = setInterval(fetchRequests, 30000);
-    return () => clearInterval(intervalId);
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []); // Consider adding dependencies if needed, e.g., [baseUrl, addNotification]
+    loadData(); // Initial load
 
-  const handleExitApproval = async (identifier, type) => { // Use 'identifier' for clarity
+    // Set up polling for pending requests and stats (adjust interval as needed)
+    const intervalId = setInterval(() => {
+      fetchRequests();
+      fetchStats();
+      // Optionally poll daily records too, or provide a refresh button
+      // fetchAllDailyRecords();
+    }, 60000); // Poll every 60 seconds
+
+    return () => clearInterval(intervalId); // Cleanup on unmount
+  }, [baseUrl]); // Dependency array
+
+  // Handle search and filter changes
+  useEffect(() => {
+    let result = allRecords;
+
+    // Filter by type
+    if (filterType !== 'all') {
+      result = result.filter(record => record.type === filterType);
+    }
+
+    // Filter by search term
+    if (searchTerm) {
+      const lowerSearchTerm = searchTerm.toLowerCase();
+      result = result.filter(record =>
+        (record.name && record.name.toLowerCase().includes(lowerSearchTerm)) ||
+        (record.phone && record.phone.includes(lowerSearchTerm)) || // Visitors have phone
+        (record.studentId && record.studentId.includes(lowerSearchTerm)) // Students have studentId
+      );
+    }
+
+    setFilteredRecords(result);
+  }, [searchTerm, filterType, allRecords]);
+
+
+  // Approve Visitor Exit
+  const handleApproveVisitor = async (visitor) => {
     try {
-      if (!identifier) {
-        throw new Error(`Invalid ${type} identifier`);
-      }
-
-      const endpoint = `${baseUrl}/${type}s/approve-exit`;
-      // For students, identifier is _id; for visitors, it's phone
-      const payload = type === 'student' ? { id: identifier } : { phone: identifier }; 
-      
-      const response = await axios.post(endpoint, payload);
-
-      if (response.status === 200) {
-        // Use addNotification for success feedback
-        addNotification(`${type.charAt(0).toUpperCase() + type.slice(1)} exit approved successfully`, 'success'); 
-        
-        // Update local state immediately for better UX
-        if (type === 'student') {
-          setStudents(prev => prev.filter(student => student._id !== identifier));
-        } else {
-          setVisitors(prev => prev.filter(visitor => visitor.phone !== identifier));
-        }
-        
-        // Optionally, you might not need to call fetchRequests() again immediately
-        // if the local state update is sufficient. Polling will refresh later.
-        // fetchRequests(); 
-      } else {
-         // Handle non-200 success statuses if necessary
-         throw new Error(response.data?.message || `Approval failed with status ${response.status}`);
-      }
+      // Send phone number instead of ID
+      await axios.post(`${baseUrl}/visitors/approve-exit`, { phone: visitor.phone });
+      addNotification('Visitor exit approved successfully!', 'success');
+      fetchRequests(); // Re-fetch pending requests
+      fetchStats(); // Re-fetch stats
+      fetchAllDailyRecords(); // Also refresh the records table
     } catch (err) {
-      console.error(`Error approving ${type} exit:`, err);
-      const errorMsg = err.response?.data?.message || 
-                      err.message || // Include error message if no response data
-                      `Failed to approve ${type} exit. Please try again.`;
-      // Use addNotification for error feedback
-      addNotification(errorMsg, 'error'); 
+      console.error("Error approving visitor exit:", err);
+      addNotification(err.response?.data?.message || 'Failed to approve visitor exit', 'error');
     }
   };
 
-  // Use MUI components for loading and error states
-  if (loading) return <Box sx={{ display: 'flex', justifyContent: 'center', p: 4 }}><CircularProgress /></Box>;
-  if (error) return <Alert severity="error" sx={{ m: 2 }}>{error}</Alert>;
+  // Approve Student Exit (keep existing logic)
+  const handleApproveStudent = async (id) => {
+     try {
+      await axios.post(`${baseUrl}/students/approve-exit`, { id });
+      addNotification('Student exit approved successfully!', 'success');
+      fetchRequests(); // Re-fetch pending requests
+      fetchStats(); // Re-fetch stats
+    } catch (err) {
+      console.error("Error approving student exit:", err);
+      addNotification(err.response?.data?.message || 'Failed to approve student exit', 'error');
+    }
+  };
+
+  // --- Define Columns for DataGrid ---
+  const columns = [
+    {
+      field: 'type',
+      headerName: 'Type',
+      width: 100,
+      // Add check for params.row
+      valueGetter: (params) => {
+        if (!params.row) return 'N/A';
+        return params.row.type === 'student' ? 'Student' : 'Visitor';
+      }
+    },
+    {
+      field: 'name',
+      headerName: 'Name',
+      width: 180,
+      // Add check for params.row and use nullish coalescing
+      valueGetter: (params) => params.row?.name ?? 'N/A'
+    },
+    {
+      field: 'identifier',
+      headerName: 'Phone / Student ID',
+      width: 150,
+      // Add check for params.row
+      valueGetter: (params) => {
+        if (!params.row) return 'N/A';
+        return params.row.type === 'student' ? params.row.studentId : params.row.phone;
+      },
+    },
+    {
+      field: 'purpose',
+      headerName: 'Purpose',
+      width: 200,
+      // Add check for params.row and use nullish coalescing
+      valueGetter: (params) => params.row?.purpose ?? 'N/A'
+    },
+    {
+      field: 'entryTime',
+      headerName: 'Entry Time',
+      width: 180,
+      // Add check for params.row and entryTime using optional chaining
+      valueGetter: (params) => params.row?.entryTime ? new Date(params.row.entryTime).toLocaleString() : 'N/A',
+    },
+    {
+      field: 'exitTime',
+      headerName: 'Exit Time',
+      width: 180,
+      // Add check for params.row and exitTime using optional chaining
+      valueGetter: (params) => params.row?.exitTime ? new Date(params.row.exitTime).toLocaleString() : 'N/A',
+    },
+     {
+      field: 'status',
+      headerName: 'Status',
+      width: 150,
+      // Add check for params.row
+      valueGetter: (params) => {
+        if (!params.row) return 'N/A'; // Handle undefined row
+        if (params.row.hasExited) return 'Exited';
+        if (params.row.exitApproved) return 'Approved (Pending Exit)';
+        if (params.row.exitRequested) return 'Requested Exit';
+        return 'Inside';
+      },
+    },
+  ];
+
+  // --- Render Logic ---
+  if (loading) {
+    return <Box sx={{ display: 'flex', justifyContent: 'center', p: 4 }}><CircularProgress /></Box>;
+  }
+
+  if (error && !stats && pendingVisitors.length === 0 && pendingStudents.length === 0) {
+    // Show main error only if nothing else loaded
+    return <Alert severity="error" sx={{ m: 2 }}>{error}</Alert>;
+  }
 
   return (
-    // Use Box for layout
-    <Box> 
-      <Typography variant="h4" gutterBottom component="h2">
-        Faculty Dashboard - Pending Exit Approvals
-      </Typography>
+    <Box sx={{ p: 3 }}>
+      <Typography variant="h4" gutterBottom>Faculty Dashboard</Typography>
 
-      {/* Student Section */}
-      <Typography variant="h5" gutterBottom component="h3">
-        Student Exit Requests ({students.length})
-      </Typography>
-      {students.length === 0 ? (
-        <Typography sx={{ mb: 3 }}>No pending student exit requests</Typography>
-      ) : (
-        // Use Grid for responsive layout
-        <Grid container spacing={2} sx={{ mb: 3 }}> 
-          {students.map((student) => (
-            // Grid item for each student card
-            <Grid item xs={12} sm={6} md={4} key={student._id}> 
-              {/* Card component */}
-              <Card variant="outlined"> 
-                <CardContent>
-                  <Typography variant="h6" component="div">
-                    {student.name}
-                  </Typography>
-                  <Typography sx={{ mb: 1.5 }} color="text.secondary">
-                    Student ID: {student.studentId}
-                  </Typography>
-                  <Typography variant="body2">
-                    Purpose: {student.purpose}
-                  </Typography>
-                  <Typography variant="caption" display="block" color="text.secondary">
-                    Entry: {new Date(student.entryTime).toLocaleString()}
-                  </Typography>
-                   <Typography variant="body2" sx={{ mt: 1, fontWeight: 'bold' }}>
-                     Status: {student.exitRequested ? 'Exit Requested' : 'Active'}
-                   </Typography>
-                </CardContent>
-                {/* Only show button if exit is requested and not yet approved */}
-                {student.exitRequested && !student.exitApproved && (
-                  <CardActions>
-                    <Button 
-                      size="small" 
-                      variant="contained" 
-                      color="primary"
-                      startIcon={<CheckCircleOutlineIcon />}
-                      onClick={() => handleExitApproval(student._id, 'student')}
-                    >
-                      Approve Exit
-                    </Button>
-                  </CardActions>
-                )}
-              </Card>
-            </Grid>
-          ))}
+      {/* Statistics Section */}
+      <Typography variant="h5" gutterBottom sx={{ mt: 3 }}>Today's Statistics</Typography>
+      {statsLoading ? <CircularProgress size={24} /> : stats ? (
+        <Grid container spacing={2} sx={{ mb: 4 }}>
+           {/* Visitor Stats */}
+           <StatCard title="Visitors Today" value={stats.visitors.totalToday} icon={<PeopleAltIcon />} color="primary.main" />
+           <StatCard title="Visitors Exited Today" value={stats.visitors.exitedToday} icon={<ExitToAppIcon />} color="success.main" />
+           <StatCard title="Visitors Pending Approval" value={stats.visitors.pendingApproval} icon={<HourglassEmptyIcon />} color="warning.main" />
+           <StatCard title="Visitors Currently Inside" value={stats.visitors.currentlyInside} icon={<MeetingRoomIcon />} color="info.main" />
+           {/* Student Stats */}
+           <StatCard title="Students Today" value={stats.students.totalToday} icon={<SchoolIcon />} color="secondary.main" />
+           <StatCard title="Students Exited Today" value={stats.students.exitedToday} icon={<ExitToAppIcon />} color="success.dark" />
+           <StatCard title="Students Pending Approval" value={stats.students.pendingApproval} icon={<HourglassEmptyIcon />} color="warning.dark" />
+           <StatCard title="Students Currently Inside" value={stats.students.currentlyInside} icon={<MeetingRoomIcon />} color="info.dark" />
         </Grid>
+      ) : <Alert severity="warning">Could not load statistics.</Alert>}
+
+      {/* Pending Exit Requests Section */}
+      <Typography variant="h5" gutterBottom sx={{ mt: 4 }}>Pending Exit Approvals</Typography>
+      {error && <Alert severity="warning" sx={{ mb: 2 }}>{error}</Alert>} {/* Show non-blocking error */}
+
+      {pendingVisitors.length === 0 && pendingStudents.length === 0 && !loading && !error && (
+         <Typography sx={{ mb: 2 }}>No pending exit requests.</Typography>
       )}
 
-      {/* Visitor Section */}
-      <Typography variant="h5" gutterBottom component="h3">
-        Visitor Exit Requests ({visitors.length})
-      </Typography>
-      {visitors.length === 0 ? (
-        <Typography sx={{ mb: 3 }}>No pending visitor exit requests</Typography>
-      ) : (
-        <Grid container spacing={2} sx={{ mb: 3 }}>
-          {visitors.map((visitor) => (
-            // Use phone as key if _id might be missing temporarily, but prefer _id
-            <Grid item xs={12} sm={6} md={4} key={visitor._id || visitor.phone}> 
-              <Card variant="outlined">
-                <CardContent>
-                  <Typography variant="h6" component="div">
-                    {visitor.name}
-                  </Typography>
-                  <Typography sx={{ mb: 1.5 }} color="text.secondary">
-                    Phone: {visitor.phone}
-                  </Typography>
-                  <Typography variant="body2">
-                    Purpose: {visitor.purpose}
-                  </Typography>
-                  <Typography variant="caption" display="block" color="text.secondary">
-                    Entry: {new Date(visitor.entryTime).toLocaleString()}
-                  </Typography>
-                  <Typography variant="body2" sx={{ mt: 1, fontWeight: 'bold' }}>
-                    Status: {visitor.exitRequested ? 'Exit Requested' : 'Active'}
-                  </Typography>
-                </CardContent>
-                {visitor.exitRequested && !visitor.exitApproved && (
-                  <CardActions>
-                    <Button 
-                      size="small" 
-                      variant="contained" 
-                      color="primary"
-                      startIcon={<CheckCircleOutlineIcon />}
-                      // Pass phone number as the identifier for visitors
-                      onClick={() => handleExitApproval(visitor.phone, 'visitor')} 
-                    >
-                      Approve Exit
-                    </Button>
-                  </CardActions>
-                )}
-              </Card>
-            </Grid>
-          ))}
-        </Grid>
+      <Grid container spacing={2}>
+        {/* Pending Visitors */}
+        {pendingVisitors.map((visitor) => (
+          <Grid item xs={12} sm={6} md={4} key={`v-${visitor._id}`}>
+            <Card variant="outlined">
+              <CardContent>
+                <Typography variant="h6">{visitor.name} (Visitor)</Typography>
+                <Typography color="text.secondary">Phone: {visitor.phone}</Typography>
+                <Typography color="text.secondary">Purpose: {visitor.purpose}</Typography>
+                <Typography color="text.secondary">Entered: {new Date(visitor.entryTime).toLocaleString()}</Typography>
+              </CardContent>
+              <CardActions>
+                <Button
+                  size="small"
+                  variant="contained"
+                  color="success"
+                  startIcon={<CheckCircleOutlineIcon />}
+                  onClick={() => handleApproveVisitor(visitor)} // Pass the entire visitor object
+                >
+                  Approve Exit
+                </Button>
+              </CardActions>
+            </Card>
+          </Grid>
+        ))}
+        {/* Pending Students */}
+        {pendingStudents.map((student) => (
+          <Grid item xs={12} sm={6} md={4} key={`s-${student._id}`}>
+            <Card variant="outlined">
+              <CardContent>
+                <Typography variant="h6">{student.name} (Student)</Typography>
+                <Typography color="text.secondary">ID: {student.studentId}</Typography>
+                <Typography color="text.secondary">Purpose: {student.purpose}</Typography>
+                <Typography color="text.secondary">Entered: {new Date(student.entryTime).toLocaleString()}</Typography>
+              </CardContent>
+              <CardActions>
+                <Button
+                  size="small"
+                  variant="contained"
+                  color="success"
+                  startIcon={<CheckCircleOutlineIcon />}
+                  onClick={() => handleApproveStudent(student._id)}
+                >
+                  Approve Exit
+                </Button>
+              </CardActions>
+            </Card>
+          </Grid>
+        ))}
+      </Grid>
+
+      {/* All Daily Records Table Section */}
+      <Typography variant="h5" gutterBottom sx={{ mt: 5 }}>Daily Records (Visitors & Students)</Typography>
+      <Paper sx={{ p: 2, mb: 3 }}>
+        <Stack direction={{ xs: 'column', sm: 'row' }} spacing={2} alignItems="center">
+           {/* Search Input */}
+           <TextField
+             label="Search by Name, Phone, or Student ID"
+             variant="outlined"
+             size="small"
+             value={searchTerm}
+             onChange={(e) => setSearchTerm(e.target.value)}
+             InputProps={{
+               startAdornment: <SearchIcon sx={{ mr: 1, color: 'action.active' }} />,
+             }}
+             sx={{ flexGrow: 1, minWidth: '300px' }} // Allow search to grow
+           />
+           {/* Filter Dropdown */}
+           <FormControl size="small" sx={{ minWidth: 150 }}>
+             <InputLabel>Filter by Type</InputLabel>
+             <Select
+               value={filterType}
+               label="Filter by Type"
+               onChange={(e) => setFilterType(e.target.value)}
+             >
+               <MenuItem value="all">All</MenuItem>
+               <MenuItem value="visitor">Visitors Only</MenuItem>
+               <MenuItem value="student">Students Only</MenuItem>
+             </Select>
+           </FormControl>
+           {/* Add a refresh button */}
+           <Button 
+             variant="outlined" 
+             onClick={fetchAllDailyRecords}
+             startIcon={<RefreshIcon />}
+           >
+             Refresh
+           </Button>
+        </Stack>
+      </Paper>
+
+      {/* Add debug info to see if data is available */}
+      {filteredRecords.length === 0 && !recordsLoading && (
+        <Alert severity="info" sx={{ mb: 2 }}>
+          No records found. {allRecords.length > 0 ? 'Try adjusting your filters.' : ''}
+        </Alert>
       )}
+
+      <Box sx={{ height: 600, width: '100%', mb: 4 }}>
+        <DataGrid
+          rows={filteredRecords}
+          columns={columns}
+          loading={recordsLoading}
+          pageSizeOptions={[10, 25, 50]}
+          initialState={{
+            pagination: {
+              paginationModel: { pageSize: 10, page: 0 },
+            },
+            sorting: {
+              sortModel: [{ field: 'entryTime', sort: 'desc' }],
+            },
+          }}
+          getRowId={(row) => row.id}
+          sx={{ 
+            height: '100%', 
+            width: '100%',
+            '& .MuiDataGrid-main': { overflow: 'auto' }
+          }}
+        />
+      </Box>
+
     </Box>
   );
 }
