@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import axios from 'axios';
 import { useNotification } from '../context/NotificationContext';
+import { useAuth } from '../context/AuthContext';
 // Import MUI components
 import {
   Box, Typography, CircularProgress, Alert, Grid, Card,
@@ -17,6 +18,7 @@ import MeetingRoomIcon from '@mui/icons-material/MeetingRoom';
 import ExitToAppIcon from '@mui/icons-material/ExitToApp';
 import SearchIcon from '@mui/icons-material/Search'; // Import Search Icon
 import RefreshIcon from '@mui/icons-material/Refresh';
+import io from 'socket.io-client';
 
 // Helper component for Stats Card (keep as is)
 const StatCard = ({ title, value, icon, color = "text.secondary" }) => (
@@ -41,6 +43,7 @@ function FacultyDashboard() {
   const [searchTerm, setSearchTerm] = useState(''); // State for search input
   const [filterType, setFilterType] = useState('all'); // State for filter dropdown ('all', 'visitor', 'student')
   const { addNotification } = useNotification();
+  const { currentUser } = useAuth();
   const baseUrl = import.meta.env.VITE_API_URL || 'http://localhost:5000';
 
   // Fetch pending exit requests (keep existing logic)
@@ -193,9 +196,8 @@ function FacultyDashboard() {
       field: 'type',
       headerName: 'Type',
       width: 100,
-      // Add check for params.row
       valueGetter: (params) => {
-        if (!params.row) return 'N/A';
+        if (!params || !params.row) return 'N/A';
         return params.row.type === 'student' ? 'Student' : 'Visitor';
       }
     },
@@ -203,16 +205,17 @@ function FacultyDashboard() {
       field: 'name',
       headerName: 'Name',
       width: 180,
-      // Add check for params.row and use nullish coalescing
-      valueGetter: (params) => params.row?.name ?? 'N/A'
+      valueGetter: (params) => {
+        if (!params || !params.row) return 'N/A';
+        return params.row.name || 'N/A';
+      }
     },
     {
       field: 'identifier',
       headerName: 'Phone / Student ID',
       width: 150,
-      // Add check for params.row
       valueGetter: (params) => {
-        if (!params.row) return 'N/A';
+        if (!params || !params.row) return 'N/A';
         return params.row.type === 'student' ? params.row.studentId : params.row.phone;
       },
     },
@@ -220,30 +223,35 @@ function FacultyDashboard() {
       field: 'purpose',
       headerName: 'Purpose',
       width: 200,
-      // Add check for params.row and use nullish coalescing
-      valueGetter: (params) => params.row?.purpose ?? 'N/A'
+      valueGetter: (params) => {
+        if (!params || !params.row) return 'N/A';
+        return params.row.purpose || 'N/A';
+      }
     },
     {
       field: 'entryTime',
       headerName: 'Entry Time',
       width: 180,
-      // Add check for params.row and entryTime using optional chaining
-      valueGetter: (params) => params.row?.entryTime ? new Date(params.row.entryTime).toLocaleString() : 'N/A',
+      valueGetter: (params) => {
+        if (!params || !params.row) return 'N/A';
+        return params.row.entryTime ? new Date(params.row.entryTime).toLocaleString() : 'N/A';
+      },
     },
     {
       field: 'exitTime',
       headerName: 'Exit Time',
       width: 180,
-      // Add check for params.row and exitTime using optional chaining
-      valueGetter: (params) => params.row?.exitTime ? new Date(params.row.exitTime).toLocaleString() : 'N/A',
+      valueGetter: (params) => {
+        if (!params || !params.row) return 'N/A';
+        return params.row.exitTime ? new Date(params.row.exitTime).toLocaleString() : 'N/A';
+      },
     },
-     {
+    {
       field: 'status',
       headerName: 'Status',
       width: 150,
-      // Add check for params.row
       valueGetter: (params) => {
-        if (!params.row) return 'N/A'; // Handle undefined row
+        if (!params || !params.row) return 'N/A';
         if (params.row.hasExited) return 'Exited';
         if (params.row.exitApproved) return 'Approved (Pending Exit)';
         if (params.row.exitRequested) return 'Requested Exit';
@@ -251,6 +259,39 @@ function FacultyDashboard() {
       },
     },
   ];
+
+  // Socket connection effect - MOVED HERE
+  useEffect(() => {
+    const socket = io(baseUrl);
+
+    // Join a room specific to this faculty member
+    if (currentUser && currentUser._id) {
+      socket.emit('joinRoom', `user_${currentUser._id}`);
+    }
+
+    socket.on('newVisitor', (data) => {
+      addNotification(data.message, 'info');
+      // Refresh data
+      fetchRequests();
+      fetchStats();
+      // Consider refreshing all records too if needed
+      // fetchAllDailyRecords(); 
+    });
+
+    // Add listener for visitor exit events
+    socket.on('visitorExited', (data) => {
+      addNotification(data.message, 'success');
+      // Refresh data to update the records
+      fetchRequests();
+      fetchStats();
+      fetchAllDailyRecords();
+    });
+
+    return () => {
+      socket.disconnect();
+    };
+  }, [baseUrl, currentUser, addNotification]); // Socket connection effect dependencies
+
 
   // --- Render Logic ---
   if (loading) {
@@ -389,7 +430,8 @@ function FacultyDashboard() {
         </Alert>
       )}
 
-      <Box sx={{ height: 600, width: '100%', mb: 4 }}>
+      {/* DataGrid for displaying records */}
+      <div style={{ height: 600, width: '100%', marginBottom: '2rem' }}>
         <DataGrid
           rows={filteredRecords}
           columns={columns}
@@ -403,17 +445,15 @@ function FacultyDashboard() {
               sortModel: [{ field: 'entryTime', sort: 'desc' }],
             },
           }}
-          getRowId={(row) => row.id}
-          sx={{ 
-            height: '100%', 
-            width: '100%',
-            '& .MuiDataGrid-main': { overflow: 'auto' }
-          }}
+          getRowId={(row) => row.id || `fallback-${Math.random()}`} // Add fallback ID
+          disableRowSelectionOnClick
         />
-      </Box>
-
+      </div>
     </Box>
   );
+
+  // REMOVED Socket connection effect from here
+  // useEffect(() => { ... }); 
 }
 
 export default FacultyDashboard;

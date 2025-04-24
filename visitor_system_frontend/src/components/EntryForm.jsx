@@ -1,139 +1,169 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import axios from 'axios';
-import { useNavigate } from 'react-router-dom';
-import { useNotification } from '../context/NotificationContext'; // Import notification hook
-// Import MUI components
-import { 
-  Box, Typography, TextField, Button, CircularProgress, Alert 
+import {
+  Box, Typography, TextField, Button, Paper, CircularProgress,
+  FormControl, InputLabel, Select, MenuItem, Alert
 } from '@mui/material';
+import { useNotification } from '../context/NotificationContext';
 
 function EntryForm() {
   const [name, setName] = useState('');
-  const [phone, setPhone] = useState(''); // Added phone state
+  const [phone, setPhone] = useState('');
   const [purpose, setPurpose] = useState('');
-  const [loading, setLoading] = useState(false); // State for loading indicator
-  const [error, setError] = useState(null); // State for error message
-  const navigate = useNavigate();
-  const { addNotification } = useNotification(); // Get notification function
-  const baseUrl = import.meta.env.VITE_API_URL || 'http://localhost:5000';
+  const [department, setDepartment] = useState('');
+  const [faculty, setFaculty] = useState('');
+  const [facultyList, setFacultyList] = useState([]);
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [success, setSuccess] = useState(false);
+  const [error, setError] = useState('');
+  const { addNotification } = useNotification();
+  const baseUrl = 'http://localhost:5000';
 
-  const handleSubmit = async (event) => {
-    event.preventDefault();
-    setLoading(true); // Start loading
-    setError(null); // Clear previous errors
+  // Departments list
+  const departments = ['Management', 'Engineering', 'Pharma', 'Nursing', 'Teaching'];
+
+  // Fetch faculty members when department changes
+  useEffect(() => {
+    if (department) {
+      const fetchFaculty = async () => {
+        try {
+          const response = await axios.get(`${baseUrl}/faculty/department/${department}`);
+          setFacultyList(response.data);
+        } catch (err) {
+          console.error('Error fetching faculty:', err);
+          addNotification('Failed to load faculty members', 'error');
+        }
+      };
+
+      fetchFaculty();
+    } else {
+      setFacultyList([]);
+    }
+  }, [department, baseUrl, addNotification]);
+
+  const handleSubmit = async (e) => {
+    e.preventDefault();
+    setIsSubmitting(true);
+    setError('');
+    setSuccess(false);
 
     try {
-      const response = await axios.post(`${baseUrl}/visitors/entry`, { 
-        name, 
-        phone, // Include phone in payload
-        purpose 
+      await axios.post(`${baseUrl}/visitors/register`, {
+        name,
+        phone,
+        purpose,
+        department,
+        faculty
       });
-      
-      if (response.status === 201) {
-        // Use notification hook for success message
-        addNotification('Visitor entry registered successfully! Exit requested automatically.', 'success'); 
-        // Optionally clear the form or navigate away
-        setName('');
-        setPhone('');
-        setPurpose('');
-        // navigate('/'); // Example: navigate back home after successful entry
-      } else {
-         // Handle unexpected success status
-         throw new Error(response.data?.message || `Registration failed with status ${response.status}`);
-      }
+
+      // Reset form
+      setName('');
+      setPhone('');
+      setPurpose('');
+      setDepartment('');
+      setFaculty('');
+      setSuccess(true);
+      addNotification('Visitor registered successfully!', 'success');
     } catch (err) {
-      console.error("Error registering visitor:", err);
-      const errorMsg = err.response?.data?.message || err.message || "Failed to register visitor entry.";
-      setError(errorMsg); // Set error state to display Alert
-      // Use notification hook for error message
-      addNotification(errorMsg, 'error'); 
+      console.error('Error registering visitor:', err);
+      setError(err.response?.data?.message || 'Failed to register visitor');
+      addNotification(err.response?.data?.message || 'Failed to register visitor', 'error');
     } finally {
-      setLoading(false); // Stop loading regardless of outcome
+      setIsSubmitting(false);
     }
   };
 
   return (
-    // Use Box for layout and styling
-    <Box 
-      component="form" // Render as a form element
-      onSubmit={handleSubmit} 
-      sx={{
-        display: 'flex',
-        flexDirection: 'column',
-        alignItems: 'center',
-        gap: 2, // Spacing between elements
-        p: 3, // Padding
-        maxWidth: '500px', // Limit form width
-        margin: 'auto', // Center the form
-        mt: 4, // Margin top
-        border: '1px solid', // Optional border
-        borderColor: 'grey.300', // Optional border color
-        borderRadius: 1, // Optional border radius
-        boxShadow: 1 // Optional subtle shadow
-      }}
-    >
-      <Typography variant="h4" component="h2" gutterBottom>
+    <Box sx={{ maxWidth: 600, mx: 'auto', p: 2 }}>
+      <Typography variant="h4" component="h1" gutterBottom align="center">
         Visitor Entry Form
       </Typography>
-      
-      {/* Display error Alert if error exists */}
-      {error && <Alert severity="error" sx={{ width: '100%' }}>{error}</Alert>}
 
-      {/* Use TextField for inputs */}
-      <TextField 
-        label="Name" 
-        variant="outlined" 
-        value={name} 
-        onChange={(e) => setName(e.target.value)} 
-        required 
-        fullWidth // Take full width of container
-      />
-      <TextField 
-        label="Phone Number" 
-        variant="outlined" 
-        type="tel" // Use tel type for phone numbers
-        value={phone} 
-        onChange={(e) => setPhone(e.target.value)} 
-        required 
-        fullWidth 
-      />
-      <TextField 
-        label="Purpose of Visit" 
-        variant="outlined" 
-        value={purpose} 
-        onChange={(e) => setPurpose(e.target.value)} 
-        required 
-        fullWidth 
-        multiline // Allow multiple lines for purpose
-        rows={3} 
-      />
-      
-      {/* Use Button for submission, show CircularProgress when loading */}
-      <Box sx={{ position: 'relative', width: '100%' }}>
-        <Button 
-          type="submit" 
-          variant="contained" 
-          color="primary" 
-          disabled={loading} // Disable button while loading
-          fullWidth
-          sx={{ mt: 2 }} // Add margin top to the button
-        >
-          Register Entry
-        </Button>
-        {loading && (
-          <CircularProgress
-            size={24}
-            sx={{
-              color: 'primary.main',
-              position: 'absolute',
-              top: '50%',
-              left: '50%',
-              marginTop: '-12px', // Center vertically
-              marginLeft: '-12px', // Center horizontally
-            }}
-          />
+      <Paper elevation={3} sx={{ p: 3 }}>
+        {success && (
+          <Alert severity="success" sx={{ mb: 2 }}>
+            Visitor registered successfully!
+          </Alert>
         )}
-      </Box>
+
+        {error && (
+          <Alert severity="error" sx={{ mb: 2 }}>
+            {error}
+          </Alert>
+        )}
+
+        <Box component="form" onSubmit={handleSubmit}>
+          <TextField
+            label="Full Name"
+            fullWidth
+            margin="normal"
+            value={name}
+            onChange={(e) => setName(e.target.value)}
+            required
+          />
+
+          <TextField
+            label="Phone Number"
+            fullWidth
+            margin="normal"
+            value={phone}
+            onChange={(e) => setPhone(e.target.value)}
+            required
+          />
+
+          <TextField
+            label="Purpose of Visit"
+            fullWidth
+            margin="normal"
+            value={purpose}
+            onChange={(e) => setPurpose(e.target.value)}
+            required
+            multiline
+            rows={2}
+          />
+
+          <FormControl fullWidth margin="normal" required>
+            <InputLabel>Department</InputLabel>
+            <Select
+              value={department}
+              label="Department"
+              onChange={(e) => setDepartment(e.target.value)}
+            >
+              {departments.map((dept) => (
+                <MenuItem key={dept} value={dept}>
+                  {dept}
+                </MenuItem>
+              ))}
+            </Select>
+          </FormControl>
+
+          <FormControl fullWidth margin="normal" required disabled={!department || facultyList.length === 0}>
+            <InputLabel>Faculty Member</InputLabel>
+            <Select
+              value={faculty}
+              label="Faculty Member"
+              onChange={(e) => setFaculty(e.target.value)}
+            >
+              {facultyList.map((f) => (
+                <MenuItem key={f._id} value={f._id}>
+                  {f.name}
+                </MenuItem>
+              ))}
+            </Select>
+          </FormControl>
+
+          <Button
+            type="submit"
+            variant="contained"
+            color="primary"
+            fullWidth
+            sx={{ mt: 3 }}
+            disabled={isSubmitting}
+          >
+            {isSubmitting ? <CircularProgress size={24} /> : 'Register Visitor'}
+          </Button>
+        </Box>
+      </Paper>
     </Box>
   );
 }

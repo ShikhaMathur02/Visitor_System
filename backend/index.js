@@ -8,9 +8,11 @@ const { Server } = require("socket.io"); // Socket.IO server
 // const { setupNotifications } = require('./utils/notifications');
 
 // Fix case sensitivity in route imports
-const visitorRoutes = require('./routes/visitorroutes');
-const studentRoutes = require('./routes/studentroutes');
+const visitorRoutes = require('./routes/visitorRoutes');
+const studentRoutes = require('./routes/studentRoutes');
 const statsRoutes = require('./routes/statsRoutes');
+const authRoutes = require("./routes/authRoutes");
+const adminRoutes = require("./routes/adminRoutes");
 
 const app = express();
 const server = http.createServer(app); // Create HTTP server
@@ -47,6 +49,12 @@ exports.io = io;
 io.on('connection', (socket) => {
   console.log('New client connected');
   
+  // Handle room joining for targeted notifications
+  socket.on('joinRoom', (room) => {
+    socket.join(room);
+    console.log(`Socket ${socket.id} joined room: ${room}`);
+  });
+  
   socket.on('disconnect', () => {
     console.log('Client disconnected');
   });
@@ -56,6 +64,9 @@ io.on('connection', (socket) => {
 app.use('/visitors', visitorRoutes);
 app.use('/students', studentRoutes);
 app.use('/stats', statsRoutes);
+app.use('/auth', authRoutes);
+app.use('/admin', adminRoutes);
+app.use('/faculty', require('./routes/facultyRoutes')); // Add this line
 
 // Basic route
 app.get('/', (req, res) => {
@@ -65,3 +76,10 @@ app.get('/', (req, res) => {
 // Start Server
 const PORT = process.env.PORT || 5000;
 server.listen(PORT, () => console.log(`Server running on port ${PORT}`));
+
+// Remove these duplicate route definitions
+// const authRoutes = require("./routes/authRoutes");
+// app.use("/auth", authRoutes);
+
+// const adminRoutes = require("./routes/adminRoutes");
+// app.use("/admin", adminRoutes);
