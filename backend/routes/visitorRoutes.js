@@ -1,46 +1,57 @@
 const express = require('express');
-// Router is already declared later in the file, so removing this duplicate declaration
 const visitorController = require("../controllers/visitorController");
-const User = require('../models/User');
 const router = express.Router();
-// --- Specific Routes First ---
 
-// Route to get all visitor records for the current day
-router.get("/daily-records", visitorController.getDailyVisitorRecords); 
+// Get all visitors
+router.get("/", visitorController.getAllVisitors);
 
-// Route to get pending exit requests for faculty
+// Get visitors by faculty ID
+router.get("/faculty/:facultyId", visitorController.getVisitorsByFaculty);
+
+// Get visitors by department
+router.get("/department/:department", visitorController.getVisitorsByDepartment);
+
+// Get daily records
+router.get("/daily-records", visitorController.getDailyVisitorRecords);
+
+// Get daily records by faculty ID
+router.get("/daily-records/faculty/:facultyId", visitorController.getDailyVisitorRecordsByFaculty);
+
+// Get pending exits
 router.get("/pending-exits", visitorController.getPendingExits);
 
-// Route to get approved exit requests for guards
+// Get pending exits by faculty ID
+router.get("/pending-exits/faculty/:facultyId", visitorController.getPendingExitsByFaculty);
+
+// Get approved exits
 router.get("/approved-exits", visitorController.getApprovedExits);
 
-// Route for visitor entry (automatically requests exit)
-// Note: Ensure visitorEntry in the controller handles the exit request logic
-router.post("/entry", visitorController.visitorEntry); 
+// Get visitor by phone
+router.get("/phone/:phone", visitorController.getVisitorByPhone);
 
-// Route for faculty to approve exit - Fixed function name
+// Register visitor entry
+router.post("/entry", visitorController.visitorEntry);
+
+// Register a new visitor - Fix: Use visitorEntry instead of registerVisitor
+router.post("/register", visitorController.visitorEntry);
+
+// Request exit
+router.post("/request-exit", visitorController.requestExit);
+
+// Approve exit
 router.post("/approve-exit", visitorController.approveExit);
 
-// Route for guard to confirm exit - Fixed function name
+// Confirm exit
 router.post("/confirm-exit", visitorController.confirmExit);
 
-// --- Parameterized Routes Last ---
-
-// Route to get a specific visitor by phone (if needed)
-router.get("/phone/:phone", visitorController.getVisitorByPhone); 
-
-// --- Optional Routes (Commented Out) ---
-// router.get("/", visitorController.getAllVisitors); 
-// router.delete("/:phone", visitorController.deleteVisitor);
-
+// Delete visitor
+router.delete("/:phone", visitorController.deleteVisitor);
 
 module.exports = router;
 
-
-
-
+// REMOVE ALL CODE BELOW THIS LINE IN THIS FILE
+/*
 const Visitor = require('../models/Visitor');
-
 
 // Register a new visitor
 router.post('/register', async (req, res) => {
@@ -171,4 +182,5 @@ router.post('/record-exit', async (req, res) => {
   }
 });
 
-module.exports = router;
+module.exports = router; 
+*/

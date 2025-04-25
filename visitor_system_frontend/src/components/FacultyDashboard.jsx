@@ -46,15 +46,20 @@ function FacultyDashboard() {
   const { currentUser } = useAuth();
   const baseUrl = import.meta.env.VITE_API_URL || 'http://localhost:5000';
 
-  // Fetch pending exit requests (keep existing logic)
+  // Fetch pending exit requests (updated to use faculty-specific endpoint)
   const fetchRequests = async () => {
     try {
+      if (!currentUser || !currentUser._id) {
+        console.error("No current user found");
+        return;
+      }
+
       // Fetch pending student exit requests
       const studentResponse = await axios.get(`${baseUrl}/students/pending-exits`);
       setPendingStudents(Array.isArray(studentResponse.data) ? studentResponse.data : []);
 
-      // Fetch pending visitor exit requests
-      const visitorResponse = await axios.get(`${baseUrl}/visitors/pending-exits`);
+      // Fetch pending visitor exit requests for this faculty only
+      const visitorResponse = await axios.get(`${baseUrl}/visitors/pending-exits/faculty/${currentUser._id}`);
       setPendingVisitors(Array.isArray(visitorResponse.data) ? visitorResponse.data : []);
 
     } catch (err) {
@@ -81,12 +86,20 @@ function FacultyDashboard() {
     }
   };
 
-  // Fetch all daily records (New Function)
+  // Fetch all daily records (Updated for faculty-specific records)
   const fetchAllDailyRecords = async () => {
     setRecordsLoading(true);
     try {
+      if (!currentUser || !currentUser._id) {
+        console.error("No current user found");
+        setAllRecords([]);
+        setFilteredRecords([]);
+        setRecordsLoading(false);
+        return;
+      }
+
       const [visitorRes, studentRes] = await Promise.all([
-        axios.get(`${baseUrl}/visitors/daily-records`),
+        axios.get(`${baseUrl}/visitors/daily-records/faculty/${currentUser._id}`),
         axios.get(`${baseUrl}/students/daily-records`)
       ]);
 
@@ -306,6 +319,9 @@ function FacultyDashboard() {
   return (
     <Box sx={{ p: 3 }}>
       <Typography variant="h4" gutterBottom>Faculty Dashboard</Typography>
+      <Typography variant="subtitle1" gutterBottom>
+        Department: {currentUser?.department || 'Not Assigned'}
+      </Typography>
 
       {/* Statistics Section */}
       <Typography variant="h5" gutterBottom sx={{ mt: 3 }}>Today's Statistics</Typography>
