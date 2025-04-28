@@ -206,17 +206,34 @@ exports.confirmExit = async (req, res) => {
     if (!visitor) return res.status(404).json({ message: "Visitor not found" });
 
     if (!visitor.exitApproved) {
-      return res.status(400).json({ message: "Exit not approved yet!" });
+      return res.status(400).json({ message: "Exit not approved yet" });
     }
 
     visitor.hasExited = true;
     visitor.exitTime = new Date();
     await visitor.save();
 
-    notifyDirector(`🚪 Visitor ${visitor.name} has exited.`);
+    // Get the Socket.io instance
+    const io = require('../index').io;
+    
+    // Notify the specific faculty member who approved the exit
+    if (io && visitor.faculty) {
+      io.to(`user_${visitor.faculty}`).emit('visitorExited', {
+        message: `Visitor ${visitor.name} has exited the premises`,
+        visitor: {
+          name: visitor.name,
+          phone: visitor.phone,
+          exitTime: visitor.exitTime
+        }
+      });
+      
+      console.log(`Exit notification sent to faculty ${visitor.faculty} for visitor ${visitor.name}`);
+    }
+
     res.status(200).json({ message: "Exit confirmed", visitor });
   } catch (error) {
-    res.status(500).json({ message: "Error confirming exit", error });
+    console.error("Error confirming exit:", error);
+    res.status(500).json({ message: "Error confirming exit", error: error.message });
   }
 };
 
@@ -253,5 +270,53 @@ exports.getDailyVisitorRecords = async (req, res) => {
   } catch (error) {
     console.error("Error fetching daily visitor records:", error);
     res.status(500).json({ message: "Error fetching daily visitor records", error: error.message });
+  }
+};
+
+// Get visitors pending faculty approval
+// @route GET /visitors/pending-faculty-approval
+exports.getVisitorsPendingFacultyApproval = async (req, res) => {
+  try {
+    // Find visitors who have requested exit but not yet approved
+    const pendingVisitors = await Visitor.find({
+      exitRequested: true,
+      exitApproved: false,
+      hasExited: false
+    }).sort({ entryTime: -1 });
+
+    console.log(`Found ${pendingVisitors.length} visitors pending faculty approval`);
+    res.status(200).json(pendingVisitors);
+  } catch (error) {
+    console.error("Error fetching visitors pending faculty approval:", error);
+    res.status(500).json({
+      message: "Error fetching visitors pending faculty approval",
+      error: error.message
+    });
+  }
+};
+
+// Get visitors who exited today
+// @route GET /visitors/exited-today
+exports.getVisitorsExitedToday = async (req, res) => {
+  try {
+    const today = new Date();
+    today.setHours(0, 0, 0, 0); // Start of today
+
+    const tomorrow = new Date(today);
+    tomorrow.setDate(tomorrow.getDate() + 1);
+
+    const visitors = await Visitor.find({
+      exitTime: { $gte: today, $lt: tomorrow },
+      hasExited: true
+    }).sort({ exitTime: -1 });
+
+    console.log(`Found ${visitors.length} visitors who exited today`);
+    res.status(200).json(visitors);
+  } catch (error) {
+    console.error("Error fetching visitors who exited today:", error);
+    res.status(500).json({
+      message: "Error fetching visitors who exited today",
+      error: error.message
+    });
   }
 };

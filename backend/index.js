@@ -11,7 +11,7 @@ const { Server } = require("socket.io"); // Socket.IO server
 const visitorRoutes = require('./routes/visitorRoutes');
 const studentRoutes = require('./routes/studentRoutes');
 const statsRoutes = require('./routes/statsRoutes');
-const authRoutes = require("./routes/authRoutes");
+const authRoutes = require("./authRoutes");
 const adminRoutes = require("./routes/adminRoutes");
 
 const app = express();
@@ -76,10 +76,3 @@ app.get('/', (req, res) => {
 // Start Server
 const PORT = process.env.PORT || 5000;
 server.listen(PORT, () => console.log(`Server running on port ${PORT}`));
-
-// Remove these duplicate route definitions
-// const authRoutes = require("./routes/authRoutes");
-// app.use("/auth", authRoutes);
-
-// const adminRoutes = require("./routes/adminRoutes");
-// app.use("/admin", adminRoutes);

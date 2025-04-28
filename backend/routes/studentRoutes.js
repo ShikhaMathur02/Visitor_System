@@ -28,6 +28,12 @@ router.get("/pending-exits", studentController.getPendingExits);
 // Should be getApprovedExits instead of getApprovedStudentExits
 router.get("/approved-exits", studentController.getApprovedExits);
 
+// Route to get students pending faculty approval
+router.get("/pending-faculty-approval", studentController.getStudentsPendingFacultyApproval);
+
+// Route to get students who exited today
+router.get("/exited-today", studentController.getStudentsExitedToday);
+
 // Route to get a specific student by ID (if needed)
 router.get("/:id", studentController.getStudentById);
 

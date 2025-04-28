@@ -286,18 +286,67 @@ exports.getDailyStudentRecords = async (req, res) => {
     today.setHours(0, 0, 0, 0); // Start of today
 
     const tomorrow = new Date(today);
-    tomorrow.setDate(today.getDate() + 1); // Start of tomorrow
+    tomorrow.setDate(tomorrow.getDate() + 1);
 
-    const dailyRecords = await Student.find({
-      entryTime: {
-        $gte: today,
-        $lt: tomorrow
-      }
-    }).sort({ entryTime: -1 }); // Sort by most recent entry first
+    const students = await Student.find({
+      entryTime: { $gte: today, $lt: tomorrow }
+    }).sort({ entryTime: -1 });
 
-    res.status(200).json(dailyRecords);
+    console.log(`Fetched ${students.length} students for today`);
+    res.status(200).json(students);
   } catch (error) {
     console.error("Error fetching daily student records:", error);
-    res.status(500).json({ message: "Error fetching daily student records", error: error.message });
+    res.status(500).json({
+      message: "Error fetching daily student records",
+      error: error.message
+    });
+  }
+};
+
+// Get students pending faculty approval
+// @route GET /students/pending-faculty-approval
+exports.getStudentsPendingFacultyApproval = async (req, res) => {
+  try {
+    // Find students who have requested exit but not yet approved
+    const pendingStudents = await Student.find({
+      exitRequested: true,
+      exitApproved: false,
+      hasExited: false
+    }).sort({ entryTime: -1 });
+
+    console.log(`Found ${pendingStudents.length} students pending faculty approval`);
+    res.status(200).json(pendingStudents);
+  } catch (error) {
+    console.error("Error fetching students pending faculty approval:", error);
+    res.status(500).json({
+      message: "Error fetching students pending faculty approval",
+      error: error.message
+    });
+  }
+};
+
+// Get students who exited today
+// @route GET /students/exited-today
+exports.getStudentsExitedToday = async (req, res) => {
+  try {
+    const today = new Date();
+    today.setHours(0, 0, 0, 0); // Start of today
+
+    const tomorrow = new Date(today);
+    tomorrow.setDate(tomorrow.getDate() + 1);
+
+    const students = await Student.find({
+      exitTime: { $gte: today, $lt: tomorrow },
+      hasExited: true
+    }).sort({ exitTime: -1 });
+
+    console.log(`Found ${students.length} students who exited today`);
+    res.status(200).json(students);
+  } catch (error) {
+    console.error("Error fetching students who exited today:", error);
+    res.status(500).json({
+      message: "Error fetching students who exited today",
+      error: error.message
+    });
   }
 };

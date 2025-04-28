@@ -53,3 +53,49 @@ exports.getDailyStats = async (req, res) => {
     res.status(500).json({ message: "Error fetching daily statistics", error: error.message });
   }
 };
+
+/**
+ * Get faculty-specific daily statistics for visitors
+ * @route GET /stats/today/faculty/:facultyId
+ */
+exports.getFacultyDailyStats = async (req, res) => {
+  try {
+    const { facultyId } = req.params;
+    
+    if (!facultyId) {
+      return res.status(400).json({ message: "Faculty ID is required" });
+    }
+
+    const today = new Date();
+    today.setHours(0, 0, 0, 0); // Start of today
+    const tomorrow = new Date(today);
+    tomorrow.setDate(today.getDate() + 1); // Start of tomorrow
+
+    // Define the date range query for today's entries
+    const dateQuery = {
+      entryTime: { $gte: today, $lt: tomorrow },
+      faculty: facultyId
+    };
+
+    // Faculty-specific visitor stats
+    const totalVisitorsToday = await Visitor.countDocuments({ ...dateQuery });
+    const visitorsExitedToday = await Visitor.countDocuments({ ...dateQuery, hasExited: true });
+    const visitorsPendingApproval = await Visitor.countDocuments({ faculty: facultyId, exitRequested: true, exitApproved: false, hasExited: false });
+    const visitorsApprovedNotExited = await Visitor.countDocuments({ faculty: facultyId, exitApproved: true, hasExited: false });
+    const visitorsCurrentlyInside = await Visitor.countDocuments({ faculty: facultyId, hasExited: false });
+
+    res.status(200).json({
+      visitors: {
+        totalToday: totalVisitorsToday,
+        exitedToday: visitorsExitedToday,
+        pendingApproval: visitorsPendingApproval,
+        approvedNotExited: visitorsApprovedNotExited,
+        currentlyInside: visitorsCurrentlyInside
+      }
+    });
+
+  } catch (error) {
+    console.error("Error fetching faculty statistics:", error);
+    res.status(500).json({ message: "Error fetching faculty statistics", error: error.message });
+  }
+};

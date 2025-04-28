@@ -26,6 +26,12 @@ router.get("/pending-exits/faculty/:facultyId", visitorController.getPendingExit
 // Get approved exits
 router.get("/approved-exits", visitorController.getApprovedExits);
 
+// Get visitors pending faculty approval
+router.get("/pending-faculty-approval", visitorController.getVisitorsPendingFacultyApproval);
+
+// Get visitors who exited today
+router.get("/exited-today", visitorController.getVisitorsExitedToday);
+
 // Get visitor by phone
 router.get("/phone/:phone", visitorController.getVisitorByPhone);
 
