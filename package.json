@@ -1,5 +1,12 @@
 {
   "dependencies": {
-    "@mui/x-data-grid": "^8.0.0"
+    "@mui/x-data-grid": "^8.1.0",
+    "@mui/x-date-pickers": "^8.1.0",
+    "compression": "^1.8.0",
+    "date-fns": "^4.1.0",
+    "express-rate-limit": "^7.5.0",
+    "file-saver": "^2.0.5",
+    "helmet": "^8.1.0",
+    "recharts": "^2.15.3"
   }
 }

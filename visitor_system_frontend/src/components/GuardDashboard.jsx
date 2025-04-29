@@ -2,9 +2,8 @@ import { useState, useEffect } from 'react';
 import axios from 'axios';
 // Import MUI components
 import { 
-  Box, Typography, CircularProgress, Alert, Grid, Card, Divider,
-  CardContent, CardActions, Button, Paper, Stepper, Step, StepLabel,
-  StepContent, Chip, useTheme
+  Box, Typography, CircularProgress, Alert, Grid, Card,
+  CardContent, CardActions, Button, Paper, Chip, useTheme
 } from '@mui/material';
 import CheckCircleOutlineIcon from '@mui/icons-material/CheckCircleOutline';
 import HourglassEmptyIcon from '@mui/icons-material/HourglassEmpty';
@@ -47,18 +46,37 @@ function GuardDashboard() {
         const pendingVisitors = await fetchData(`${baseUrl}/visitors/pending-faculty-approval`);
         const pendingStudents = await fetchData(`${baseUrl}/students/pending-faculty-approval`);
         
+        // Filter pending requests to only show those from the current day
+        const today = new Date();
+        today.setHours(0, 0, 0, 0); // Set to beginning of today
+        
+        // Filter visitors to only include those requested today
+        const filteredPendingVisitors = pendingVisitors.filter(visitor => {
+          // Check if exitRequestTime exists, if not, use entryTime as fallback
+          const requestTime = visitor.exitRequestTime ? new Date(visitor.exitRequestTime) : new Date(visitor.entryTime);
+          return requestTime >= today;
+        });
+        
+        // Filter students to only include those requested today
+        const filteredPendingStudents = pendingStudents.filter(student => {
+          // Check if exitRequestTime exists, if not, use entryTime as fallback
+          const requestTime = student.exitRequestTime ? new Date(student.exitRequestTime) : new Date(student.entryTime);
+          return requestTime >= today;
+        });
+        
         // 2. Fetch ready for exit confirmation (exitApproved=true, hasExited=false)
         const readyVisitors = await fetchData(`${baseUrl}/visitors/approved-exits`);
         const readyStudents = await fetchData(`${baseUrl}/students/approved-exits`);
         
         // 3. Fetch completed today (hasExited=true, exitTime is today)
-        const today = new Date();
-        today.setHours(0, 0, 0, 0);
         const completedVisitors = await fetchData(`${baseUrl}/visitors/exited-today`);
         const completedStudents = await fetchData(`${baseUrl}/students/exited-today`);
         
         // Update all state at once
-        setPendingApproval({ visitors: pendingVisitors, students: pendingStudents });
+        setPendingApproval({ 
+          visitors: filteredPendingVisitors, 
+          students: filteredPendingStudents 
+        });
         setReadyForExit({ visitors: readyVisitors, students: readyStudents });
         setCompletedToday({ visitors: completedVisitors, students: completedStudents });
         setLoading(false);
@@ -143,7 +161,7 @@ function GuardDashboard() {
     const PersonIcon = isVisitor ? AccountCircleIcon : SchoolIcon;
 
     return (
-      <Grid item xs={12} sm={6} md={4} key={person._id}>
+      <Grid item xs={12} sm={6} md={4} key={person._id || person.phone}>
         <Card variant="outlined" sx={{
           borderLeft: `4px solid ${statusColors[status].color}`,
           position: 'relative',
@@ -212,115 +230,72 @@ function GuardDashboard() {
       <Typography variant="h4" gutterBottom component="h2">
         Guard Dashboard
       </Typography>
-      
-      <Paper elevation={2} sx={{ mb: 4, p: 2, borderRadius: 2 }}>
-        <Typography variant="h6" gutterBottom>
-          Activity Timeline
-        </Typography>
-        
-        <Stepper orientation="vertical">
-          {/* Stage 1: Pending Faculty Approval */}
-          <Step active expanded>
-            <StepLabel 
-              StepIconComponent={() => 
-                <HourglassEmptyIcon color="warning" fontSize="large" />
-              }
-            >
-              <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', width: '100%' }}>
-                <Typography variant="subtitle1">
-                  Pending Faculty Approval
-                </Typography>
-                <Chip label={pendingCount} color="warning" size="small" />
-              </Box>
-            </StepLabel>
-            <StepContent>
-              <Box sx={{ mt: 2 }}>
-                {pendingCount === 0 ? (
-                  <Typography variant="body2" color="text.secondary" sx={{ py: 2 }}>
-                    No requests pending faculty approval
-                  </Typography>
-                ) : (
-                  <Grid container spacing={2}>
-                    {pendingApproval.visitors.map(visitor => 
-                      renderRequestCard(visitor, 'visitor', 'pending')
-                    )}
-                    {pendingApproval.students.map(student => 
-                      renderRequestCard(student, 'student', 'pending')
-                    )}
-                  </Grid>
-                )}
-              </Box>
-            </StepContent>
-          </Step>
-          
-          {/* Stage 2: Ready for Exit Confirmation */}
-          <Step active expanded>
-            <StepLabel 
-              StepIconComponent={() => 
-                <AccessTimeIcon color="info" fontSize="large" />
-              }
-            >
-              <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', width: '100%' }}>
-                <Typography variant="subtitle1">
-                  Awaiting Exit Confirmation
-                </Typography>
-                <Chip label={readyCount} color="info" size="small" />
-              </Box>
-            </StepLabel>
-            <StepContent>
-              <Box sx={{ mt: 2 }}>
-                {readyCount === 0 ? (
-                  <Typography variant="body2" color="text.secondary" sx={{ py: 2 }}>
-                    No exit confirmations pending
-                  </Typography>
-                ) : (
-                  <Grid container spacing={2}>
-                    {readyForExit.visitors.map(visitor => 
-                      renderRequestCard(visitor, 'visitor', 'ready')
-                    )}
-                    {readyForExit.students.map(student => 
-                      renderRequestCard(student, 'student', 'ready')
-                    )}
-                  </Grid>
-                )}
-              </Box>
-            </StepContent>
-          </Step>
-          
-          {/* Stage 3: Completed Today */}
-          <Step active expanded>
-            <StepLabel 
-              StepIconComponent={() => 
-                <DoneIcon color="success" fontSize="large" />
-              }
-            >
-              <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', width: '100%' }}>
-                <Typography variant="subtitle1">
-                  Completed Today
-                </Typography>
-                <Chip label={completedCount} color="success" size="small" />
-              </Box>
-            </StepLabel>
-            <StepContent>
-              <Box sx={{ mt: 2 }}>
-                {completedCount === 0 ? (
-                  <Typography variant="body2" color="text.secondary" sx={{ py: 2 }}>
-                    No exits completed today
-                  </Typography>
-                ) : (
-                  <Grid container spacing={2}>
-                    {completedToday.visitors.map(visitor => 
-                      renderRequestCard(visitor, 'visitor', 'completed')
-                    )}
-                    {completedToday.students.map(student => 
-                      renderRequestCard(student, 'student', 'completed')
-                    )}
-                  </Grid>
-                )}
-              </Box>
-            </StepContent>
-          </Step>
-        </Stepper>
+      <Paper elevation={3} sx={{ mb: 4, p: 3, borderRadius: 2 }}>
+        {/* Pending Faculty Approval Section */}
+        <Box sx={{ bgcolor: 'warning.light', borderRadius: 2, p: 3, mb: 3 }}>
+          <Box sx={{ display: 'flex', alignItems: 'center', mb: 2 }}>
+            <HourglassEmptyIcon color="warning" sx={{ fontSize: 40, mr: 2 }} />
+            <Typography variant="h5" sx={{ fontWeight: 'bold' }}>Pending Faculty Approval</Typography>
+            <Chip label={pendingCount} color="warning" size="medium" sx={{ ml: 2, fontSize: 16 }} />
+          </Box>
+          <Typography variant="body1" sx={{ mb: 2, color: 'warning.dark' }}>
+            Requests waiting for faculty approval before exit.
+          </Typography>
+          {pendingCount === 0 ? (
+            <Typography variant="h6" color="text.secondary" sx={{ textAlign: 'center', py: 2 }}>
+              No requests pending faculty approval
+            </Typography>
+          ) : (
+            <Grid container spacing={2}>
+              {pendingApproval.visitors.map(visitor => renderRequestCard(visitor, 'visitor', 'pending'))}
+              {pendingApproval.students.map(student => renderRequestCard(student, 'student', 'pending'))}
+            </Grid>
+          )}
+        </Box>
+
+        {/* Awaiting Exit Confirmation Section */}
+        <Box sx={{ bgcolor: 'info.light', borderRadius: 2, p: 3, mb: 3 }}>
+          <Box sx={{ display: 'flex', alignItems: 'center', mb: 2 }}>
+            <AccessTimeIcon color="info" sx={{ fontSize: 40, mr: 2 }} />
+            <Typography variant="h5" sx={{ fontWeight: 'bold' }}>Awaiting Exit Confirmation</Typography>
+            <Chip label={readyCount} color="info" size="medium" sx={{ ml: 2, fontSize: 16 }} />
+          </Box>
+          <Typography variant="body1" sx={{ mb: 2, color: 'info.dark' }}>
+            These visitors/students are ready to exit. Confirm their exit at the gate.
+          </Typography>
+          {readyCount === 0 ? (
+            <Typography variant="h6" color="text.secondary" sx={{ textAlign: 'center', py: 2 }}>
+              No exit confirmations pending
+            </Typography>
+          ) : (
+            <Grid container spacing={2}>
+              {readyForExit.visitors.map(visitor => renderRequestCard(visitor, 'visitor', 'ready'))}
+              {readyForExit.students.map(student => renderRequestCard(student, 'student', 'ready'))}
+            </Grid>
+          )}
+        </Box>
+
+        {/* Completed Today Section */}
+        <Box sx={{ bgcolor: 'success.light', borderRadius: 2, p: 3 }}>
+          <Box sx={{ display: 'flex', alignItems: 'center', mb: 2 }}>
+            <DoneIcon color="success" sx={{ fontSize: 40, mr: 2 }} />
+            <Typography variant="h5" sx={{ fontWeight: 'bold' }}>Completed Today</Typography>
+            <Chip label={completedCount} color="success" size="medium" sx={{ ml: 2, fontSize: 16 }} />
+          </Box>
+          <Typography variant="body1" sx={{ mb: 2, color: 'success.dark' }}>
+            All entries that have exited today. No action needed.
+          </Typography>
+          {completedCount === 0 ? (
+            <Typography variant="h6" color="text.secondary" sx={{ textAlign: 'center', py: 2 }}>
+              No exits completed today
+            </Typography>
+          ) : (
+            <Grid container spacing={2}>
+              {completedToday.visitors.map(visitor => renderRequestCard(visitor, 'visitor', 'completed'))}
+              {completedToday.students.map(student => renderRequestCard(student, 'student', 'completed'))}
+            </Grid>
+          )}
+        </Box>
       </Paper>
     </Box>
   );
