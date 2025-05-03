@@ -1,6 +1,7 @@
 import React, { createContext, useState, useContext, useCallback, useEffect } from 'react';
 import Snackbar from '@mui/material/Snackbar';
 import Alert from '@mui/material/Alert';
+import { useSocket } from './SocketContext';
 
 const NotificationContext = createContext();
 
@@ -14,7 +15,8 @@ export function NotificationProvider({ children }) {
   // State for the currently displayed notification details
   const [currentNotification, setCurrentNotification] = useState(null); 
   // State to control Snackbar visibility
-  const [open, setOpen] = useState(false); 
+  const [open, setOpen] = useState(false);
+  const { socket } = useSocket(); 
 
   // Function to add a new notification to the queue
   const addNotification = useCallback((message, type = 'info') => {
@@ -36,6 +38,25 @@ export function NotificationProvider({ children }) {
       setOpen(true); 
     }
   }, [notifications, open]); // Dependencies: run when queue or open state changes
+  
+  // Listen for socket notifications
+  useEffect(() => {
+    if (!socket) return;
+    
+    const handleSocketNotification = (data) => {
+      // Handle notification from socket
+      const message = typeof data === 'string' ? data : data.message;
+      const type = typeof data === 'string' ? 'info' : (data.type || 'info');
+      
+      addNotification(message, type);
+    };
+    
+    socket.on('notification', handleSocketNotification);
+    
+    return () => {
+      socket.off('notification', handleSocketNotification);
+    };
+  }, [socket, addNotification]);
 
   // Function to handle closing the Snackbar
   const handleClose = (event, reason) => {

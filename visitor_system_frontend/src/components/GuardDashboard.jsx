@@ -1,98 +1,94 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback, memo } from 'react';
 import axios from 'axios';
-// Import MUI components
-import { 
-  Box, Typography, CircularProgress, Alert, Grid, Card,
-  CardContent, CardActions, Button, Paper, Chip, useTheme
-} from '@mui/material';
-import CheckCircleOutlineIcon from '@mui/icons-material/CheckCircleOutline';
-import HourglassEmptyIcon from '@mui/icons-material/HourglassEmpty';
-import DoneIcon from '@mui/icons-material/Done';
-import PendingIcon from '@mui/icons-material/Pending';
-import AccessTimeIcon from '@mui/icons-material/AccessTime';
-import AccountCircleIcon from '@mui/icons-material/AccountCircle';
-import SchoolIcon from '@mui/icons-material/School';
-import { useNotification } from '../context/NotificationContext';
 
-function GuardDashboard() {
-  // State for the three different stages of requests
-  const [pendingApproval, setPendingApproval] = useState({ visitors: [], students: [] });
-  const [readyForExit, setReadyForExit] = useState({ visitors: [], students: [] });
-  const [completedToday, setCompletedToday] = useState({ visitors: [], students: [] });
+// Use React components without MUI for better performance
+const Dashboard = () => {
+  // State management with proper initial values to prevent unnecessary renders
+  const [requests, setRequests] = useState({
+    pending: { visitors: [], students: [] },
+    ready: { visitors: [], students: [] },
+    completed: { visitors: [], students: [] }
+  });
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
+  const [lastUpdated, setLastUpdated] = useState(null);
+  
   const baseUrl = import.meta.env.VITE_API_URL || 'http://localhost:5000';
-  const theme = useTheme();
-  const { addNotification } = useNotification?.() || { addNotification: (msg) => alert(msg) };
 
-  useEffect(() => {
-    async function fetchAllRequests() {
-      try {
-        setLoading(true);
-        setError(null);
-        
-        // Helper function to handle API requests with error handling
-        const fetchData = async (url) => {
-          try {
-            const response = await axios.get(url);
-            return Array.isArray(response.data) ? response.data : [];
-          } catch (error) {
-            console.error(`Error fetching from ${url}:`, error);
-            return [];
-          }
-        };
-
-        // 1. Fetch pending faculty approval (exitRequested=true, exitApproved=false)
-        const pendingVisitors = await fetchData(`${baseUrl}/visitors/pending-faculty-approval`);
-        const pendingStudents = await fetchData(`${baseUrl}/students/pending-faculty-approval`);
-        
-        // Filter pending requests to only show those from the current day
-        const today = new Date();
-        today.setHours(0, 0, 0, 0); // Set to beginning of today
-        
-        // Filter visitors to only include those requested today
-        const filteredPendingVisitors = pendingVisitors.filter(visitor => {
-          // Check if exitRequestTime exists, if not, use entryTime as fallback
-          const requestTime = visitor.exitRequestTime ? new Date(visitor.exitRequestTime) : new Date(visitor.entryTime);
-          return requestTime >= today;
-        });
-        
-        // Filter students to only include those requested today
-        const filteredPendingStudents = pendingStudents.filter(student => {
-          // Check if exitRequestTime exists, if not, use entryTime as fallback
-          const requestTime = student.exitRequestTime ? new Date(student.exitRequestTime) : new Date(student.entryTime);
-          return requestTime >= today;
-        });
-        
-        // 2. Fetch ready for exit confirmation (exitApproved=true, hasExited=false)
-        const readyVisitors = await fetchData(`${baseUrl}/visitors/approved-exits`);
-        const readyStudents = await fetchData(`${baseUrl}/students/approved-exits`);
-        
-        // 3. Fetch completed today (hasExited=true, exitTime is today)
-        const completedVisitors = await fetchData(`${baseUrl}/visitors/exited-today`);
-        const completedStudents = await fetchData(`${baseUrl}/students/exited-today`);
-        
-        // Update all state at once
-        setPendingApproval({ 
+  // Memoized fetch function to avoid recreating on every render
+  const fetchAllRequests = useCallback(async () => {
+    try {
+      setLoading(true);
+      
+      // Create a single promise array for parallel fetching
+      const endpoints = [
+        `${baseUrl}/visitors/pending-faculty-approval`,
+        `${baseUrl}/students/pending-faculty-approval`,
+        `${baseUrl}/visitors/approved-exits`,
+        `${baseUrl}/students/approved-exits`,
+        `${baseUrl}/visitors/exited-today`,
+        `${baseUrl}/students/exited-today`,
+      ];
+      
+      // Fetch all data in parallel for better performance
+      const responses = await Promise.all(
+        endpoints.map(url => 
+          axios.get(url)
+            .then(res => Array.isArray(res.data) ? res.data : [])
+            .catch(err => {
+              console.error(`Error fetching from ${url}:`, err);
+              return [];
+            })
+        )
+      );
+      
+      // Get today for filtering
+      const today = new Date();
+      today.setHours(0, 0, 0, 0);
+      
+      // Filter only today's pending requests
+      const filteredPendingVisitors = responses[0].filter(visitor => {
+        const requestTime = visitor.exitRequestTime ? new Date(visitor.exitRequestTime) : new Date(visitor.entryTime);
+        return requestTime >= today;
+      });
+      
+      const filteredPendingStudents = responses[1].filter(student => {
+        const requestTime = student.exitRequestTime ? new Date(student.exitRequestTime) : new Date(student.entryTime);
+        return requestTime >= today;
+      });
+      
+      // Update all state at once to minimize renders
+      setRequests({
+        pending: { 
           visitors: filteredPendingVisitors, 
           students: filteredPendingStudents 
-        });
-        setReadyForExit({ visitors: readyVisitors, students: readyStudents });
-        setCompletedToday({ visitors: completedVisitors, students: completedStudents });
-        setLoading(false);
-      } catch (err) {
-        console.error("Error fetching requests:", err);
-        setError("Failed to load requests. Please try again later.");
-        setLoading(false);
-      }
+        },
+        ready: { 
+          visitors: responses[2], 
+          students: responses[3] 
+        },
+        completed: { 
+          visitors: responses[4], 
+          students: responses[5] 
+        }
+      });
+      
+      setLastUpdated(new Date());
+      setLoading(false);
+    } catch (err) {
+      console.error("Error fetching requests:", err);
+      setError("Failed to load requests. Please try again later.");
+      setLoading(false);
     }
-    
+  }, [baseUrl]);
+
+  useEffect(() => {
     fetchAllRequests();
     
-    // Poll every 30 seconds
-    const intervalId = setInterval(fetchAllRequests, 30000);
-    return () => clearInterval(intervalId);
-  }, [baseUrl]);
+    // Use more efficient polling with clearTimeout for cleanup
+    const timerId = setInterval(fetchAllRequests, 30000);
+    return () => clearInterval(timerId);
+  }, [fetchAllRequests]);
 
   const handleConfirmExit = async (id, type, phone) => { 
     try {
@@ -106,199 +102,291 @@ function GuardDashboard() {
         endpoint = `${baseUrl}/visitors/confirm-exit`;
         payload = { phone }; 
       }
+      
+      // Show loading indicator for the specific card
+      setRequests(prev => {
+        // Create deep copy to avoid mutation
+        const newState = JSON.parse(JSON.stringify(prev));
+        
+        // Find the specific item and mark it as processing
+        if (type === 'student') {
+          const studentIndex = newState.ready.students.findIndex(s => s._id === id);
+          if (studentIndex !== -1) {
+            newState.ready.students[studentIndex].processing = true;
+          }
+        } else {
+          const visitorIndex = newState.ready.visitors.findIndex(v => v.phone === phone);
+          if (visitorIndex !== -1) {
+            newState.ready.visitors[visitorIndex].processing = true;
+          }
+        }
+        
+        return newState;
+      });
         
       await axios.post(endpoint, payload);
       
-      // Update local state by removing from readyForExit and adding to completedToday
-      if (type === 'student') {
-        setReadyForExit(prev => ({
-          ...prev,
-          students: prev.students.filter(student => student._id !== id)
-        }));
+      // Update local state by moving from ready to completed
+      setRequests(prev => {
+        // Create deep copy to avoid mutation
+        const newState = JSON.parse(JSON.stringify(prev));
         
-        // Find the student to move to completed
-        const student = readyForExit.students.find(s => s._id === id);
-        if (student) {
-          setCompletedToday(prev => ({
-            ...prev,
-            students: [...prev.students, {...student, exitTime: new Date()}]
-          }));
+        if (type === 'student') {
+          // Find the student to move
+          const studentIndex = newState.ready.students.findIndex(s => s._id === id);
+          if (studentIndex !== -1) {
+            const student = newState.ready.students[studentIndex];
+            student.exitTime = new Date().toISOString();
+            student.processing = false;
+            
+            // Move to completed and remove from ready
+            newState.completed.students.push(student);
+            newState.ready.students.splice(studentIndex, 1);
+          }
+        } else {
+          // Find the visitor to move
+          const visitorIndex = newState.ready.visitors.findIndex(v => v.phone === phone);
+          if (visitorIndex !== -1) {
+            const visitor = newState.ready.visitors[visitorIndex];
+            visitor.exitTime = new Date().toISOString();
+            visitor.processing = false;
+            
+            // Move to completed and remove from ready
+            newState.completed.visitors.push(visitor);
+            newState.ready.visitors.splice(visitorIndex, 1);
+          }
         }
-      } else {
-        setReadyForExit(prev => ({
-          ...prev,
-          visitors: prev.visitors.filter(visitor => visitor.phone !== phone)
-        }));
         
-        // Find the visitor to move to completed
-        const visitor = readyForExit.visitors.find(v => v.phone === phone);
-        if (visitor) {
-          setCompletedToday(prev => ({
-            ...prev,
-            visitors: [...prev.visitors, {...visitor, exitTime: new Date()}]
-          }));
-        }
-      }
+        return newState;
+      });
       
-      addNotification(`${type.charAt(0).toUpperCase() + type.slice(1)} exit confirmed`, "success");
+      // Show success notification
+      showNotification(`${type.charAt(0).toUpperCase() + type.slice(1)} exit confirmed`, "success");
     } catch (err) {
       console.error(`Error confirming ${type} exit:`, err);
       const errorMsg = err.response?.data?.message || `Failed to confirm ${type} exit.`;
-      addNotification(errorMsg, "error");
+      showNotification(errorMsg, "error");
+      
+      // Reset processing state on error
+      setRequests(prev => {
+        const newState = JSON.parse(JSON.stringify(prev));
+        
+        if (type === 'student') {
+          const studentIndex = newState.ready.students.findIndex(s => s._id === id);
+          if (studentIndex !== -1) {
+            newState.ready.students[studentIndex].processing = false;
+          }
+        } else {
+          const visitorIndex = newState.ready.visitors.findIndex(v => v.phone === phone);
+          if (visitorIndex !== -1) {
+            newState.ready.visitors[visitorIndex].processing = false;
+          }
+        }
+        
+        return newState;
+      });
     }
   };
 
-  // Helper function to render a request card
-  const renderRequestCard = (person, type, status) => {
-    const isVisitor = type === 'visitor';
-    const statusColors = {
-      pending: { bg: theme.palette.warning.light, color: theme.palette.warning.dark },
-      ready: { bg: theme.palette.info.light, color: theme.palette.info.dark },
-      completed: { bg: theme.palette.success.light, color: theme.palette.success.dark }
-    };
+  // Simple notification function (could be replaced with a toast library)
+  const showNotification = (message, type) => {
+    const notification = document.createElement('div');
+    notification.className = `notification ${type}`;
+    notification.textContent = message;
+    document.body.appendChild(notification);
     
-    // Choose icon based on person type
-    const PersonIcon = isVisitor ? AccountCircleIcon : SchoolIcon;
-
-    return (
-      <Grid item xs={12} sm={6} md={4} key={person._id || person.phone}>
-        <Card variant="outlined" sx={{
-          borderLeft: `4px solid ${statusColors[status].color}`,
-          position: 'relative',
-          transition: 'transform 0.2s',
-          '&:hover': { transform: 'translateY(-5px)' }
-        }}>
-          <Box sx={{ position: 'absolute', top: 12, right: 12 }}>
-            <Chip 
-              size="small" 
-              color={status === 'pending' ? 'warning' : status === 'ready' ? 'info' : 'success'}
-              label={status === 'pending' ? 'Awaiting Faculty' : status === 'ready' ? 'Ready for Exit' : 'Completed'}
-              icon={status === 'pending' ? <PendingIcon /> : status === 'ready' ? <AccessTimeIcon /> : <DoneIcon />}
-            />
-          </Box>
-          <CardContent sx={{ pt: 3 }}>
-            <Box sx={{ display: 'flex', alignItems: 'center', mb: 1 }}>
-              <PersonIcon color={isVisitor ? 'primary' : 'secondary'} sx={{ mr: 1 }} />
-              <Typography variant="h6" component="div">
-                {person.name}
-              </Typography>
-            </Box>
-            <Typography sx={{ mb: 1 }} color="text.secondary">
-              {isVisitor ? `Phone: ${person.phone}` : `ID: ${person.studentId}`}
-            </Typography>
-            <Typography variant="body2" sx={{ mb: 1 }}>
-              Purpose: {person.purpose}
-            </Typography>
-            <Typography variant="caption" display="block" color="text.secondary">
-              Entry: {new Date(person.entryTime).toLocaleString()}
-            </Typography>
-            {person.exitTime && (
-              <Typography variant="caption" display="block" color="text.secondary">
-                Exit: {new Date(person.exitTime).toLocaleString()}
-              </Typography>
-            )}
-          </CardContent>
-          {status === 'ready' && (
-            <CardActions>
-              <Button 
-                size="small" 
-                variant="contained" 
-                color="primary"
-                fullWidth
-                startIcon={<CheckCircleOutlineIcon />}
-                onClick={() => handleConfirmExit(person._id, type, isVisitor ? person.phone : null)}
-              >
-                Confirm Exit
-              </Button>
-            </CardActions>
-          )}
-        </Card>
-      </Grid>
-    );
+    setTimeout(() => {
+      notification.classList.add('show');
+      setTimeout(() => {
+        notification.classList.remove('show');
+        setTimeout(() => document.body.removeChild(notification), 300);
+      }, 3000);
+    }, 10);
   };
 
-  if (loading) return <Box sx={{ display: 'flex', justifyContent: 'center', p: 4 }}><CircularProgress /></Box>;
-  if (error) return <Alert severity="error" sx={{ m: 2 }}>{error}</Alert>;
-
-  // Calculate total counts for each stage
-  const pendingCount = pendingApproval.visitors.length + pendingApproval.students.length;
-  const readyCount = readyForExit.visitors.length + readyForExit.students.length;
-  const completedCount = completedToday.visitors.length + completedToday.students.length;
+  // Calculate counts for each section
+  const pendingCount = requests.pending.visitors.length + requests.pending.students.length;
+  const readyCount = requests.ready.visitors.length + requests.ready.students.length;
+  const completedCount = requests.completed.visitors.length + requests.completed.students.length;
 
   return (
-    <Box sx={{ pb: 4 }}> 
-      <Typography variant="h4" gutterBottom component="h2">
-        Guard Dashboard
-      </Typography>
-      <Paper elevation={3} sx={{ mb: 4, p: 3, borderRadius: 2 }}>
-        {/* Pending Faculty Approval Section */}
-        <Box sx={{ bgcolor: 'warning.light', borderRadius: 2, p: 3, mb: 3 }}>
-          <Box sx={{ display: 'flex', alignItems: 'center', mb: 2 }}>
-            <HourglassEmptyIcon color="warning" sx={{ fontSize: 40, mr: 2 }} />
-            <Typography variant="h5" sx={{ fontWeight: 'bold' }}>Pending Faculty Approval</Typography>
-            <Chip label={pendingCount} color="warning" size="medium" sx={{ ml: 2, fontSize: 16 }} />
-          </Box>
-          <Typography variant="body1" sx={{ mb: 2, color: 'warning.dark' }}>
-            Requests waiting for faculty approval before exit.
-          </Typography>
-          {pendingCount === 0 ? (
-            <Typography variant="h6" color="text.secondary" sx={{ textAlign: 'center', py: 2 }}>
-              No requests pending faculty approval
-            </Typography>
-          ) : (
-            <Grid container spacing={2}>
-              {pendingApproval.visitors.map(visitor => renderRequestCard(visitor, 'visitor', 'pending'))}
-              {pendingApproval.students.map(student => renderRequestCard(student, 'student', 'pending'))}
-            </Grid>
-          )}
-        </Box>
+    <div className="dashboard">
+      <header className="dashboard-header">
+        <h1>Guard Dashboard</h1>
+        {lastUpdated && (
+          <div className="last-updated">
+            Last updated: {lastUpdated.toLocaleTimeString()}
+            <button className="refresh-button" onClick={fetchAllRequests} disabled={loading}>
+              ↻
+            </button>
+          </div>
+        )}
+      </header>
 
-        {/* Awaiting Exit Confirmation Section */}
-        <Box sx={{ bgcolor: 'info.light', borderRadius: 2, p: 3, mb: 3 }}>
-          <Box sx={{ display: 'flex', alignItems: 'center', mb: 2 }}>
-            <AccessTimeIcon color="info" sx={{ fontSize: 40, mr: 2 }} />
-            <Typography variant="h5" sx={{ fontWeight: 'bold' }}>Awaiting Exit Confirmation</Typography>
-            <Chip label={readyCount} color="info" size="medium" sx={{ ml: 2, fontSize: 16 }} />
-          </Box>
-          <Typography variant="body1" sx={{ mb: 2, color: 'info.dark' }}>
-            These visitors/students are ready to exit. Confirm their exit at the gate.
-          </Typography>
-          {readyCount === 0 ? (
-            <Typography variant="h6" color="text.secondary" sx={{ textAlign: 'center', py: 2 }}>
-              No exit confirmations pending
-            </Typography>
-          ) : (
-            <Grid container spacing={2}>
-              {readyForExit.visitors.map(visitor => renderRequestCard(visitor, 'visitor', 'ready'))}
-              {readyForExit.students.map(student => renderRequestCard(student, 'student', 'ready'))}
-            </Grid>
-          )}
-        </Box>
+      {loading && <div className="loading-overlay">Loading...</div>}
+      {error && <div className="error-alert">{error}</div>}
 
-        {/* Completed Today Section */}
-        <Box sx={{ bgcolor: 'success.light', borderRadius: 2, p: 3 }}>
-          <Box sx={{ display: 'flex', alignItems: 'center', mb: 2 }}>
-            <DoneIcon color="success" sx={{ fontSize: 40, mr: 2 }} />
-            <Typography variant="h5" sx={{ fontWeight: 'bold' }}>Completed Today</Typography>
-            <Chip label={completedCount} color="success" size="medium" sx={{ ml: 2, fontSize: 16 }} />
-          </Box>
-          <Typography variant="body1" sx={{ mb: 2, color: 'success.dark' }}>
-            All entries that have exited today. No action needed.
-          </Typography>
-          {completedCount === 0 ? (
-            <Typography variant="h6" color="text.secondary" sx={{ textAlign: 'center', py: 2 }}>
-              No exits completed today
-            </Typography>
-          ) : (
-            <Grid container spacing={2}>
-              {completedToday.visitors.map(visitor => renderRequestCard(visitor, 'visitor', 'completed'))}
-              {completedToday.students.map(student => renderRequestCard(student, 'student', 'completed'))}
-            </Grid>
-          )}
-        </Box>
-      </Paper>
-    </Box>
+      <div className="dashboard-content">
+        {/* Pending Section */}
+        <Section 
+          title="Pending Faculty Approval" 
+          icon="⏳" 
+          count={pendingCount}
+          color="warning"
+          description="Requests waiting for faculty approval before exit"
+          emptyMessage="No requests pending faculty approval"
+        >
+          <CardGrid>
+            {requests.pending.visitors.map(visitor => (
+              <RequestCard 
+                key={`visitor-${visitor.phone}`}
+                person={visitor} 
+                type="visitor" 
+                status="pending" 
+              />
+            ))}
+            {requests.pending.students.map(student => (
+              <RequestCard 
+                key={`student-${student._id}`}
+                person={student} 
+                type="student" 
+                status="pending" 
+              />
+            ))}
+          </CardGrid>
+        </Section>
+
+        {/* Ready Section */}
+        <Section 
+          title="Awaiting Exit Confirmation" 
+          icon="⌛" 
+          count={readyCount}
+          color="info"
+          description="These visitors/students are ready to exit. Confirm their exit at the gate."
+          emptyMessage="No exit confirmations pending"
+        >
+          <CardGrid>
+            {requests.ready.visitors.map(visitor => (
+              <RequestCard 
+                key={`visitor-${visitor.phone}`}
+                person={visitor} 
+                type="visitor" 
+                status="ready"
+                onConfirm={handleConfirmExit}
+              />
+            ))}
+            {requests.ready.students.map(student => (
+              <RequestCard 
+                key={`student-${student._id}`}
+                person={student} 
+                type="student" 
+                status="ready"
+                onConfirm={handleConfirmExit}
+              />
+            ))}
+          </CardGrid>
+        </Section>
+
+        {/* Completed Section */}
+        <Section 
+          title="Completed Today" 
+          icon="✓" 
+          count={completedCount}
+          color="success"
+          description="All entries that have exited today. No action needed."
+          emptyMessage="No exits completed today"
+        >
+          <CardGrid>
+            {requests.completed.visitors.map(visitor => (
+              <RequestCard 
+                key={`visitor-${visitor.phone}`}
+                person={visitor} 
+                type="visitor" 
+                status="completed"
+              />
+            ))}
+            {requests.completed.students.map(student => (
+              <RequestCard 
+                key={`student-${student._id}`}
+                person={student} 
+                type="student" 
+                status="completed"
+              />
+            ))}
+          </CardGrid>
+        </Section>
+      </div>
+    </div>
   );
-}
+};
 
-export default GuardDashboard;
+// Memoized components to prevent unnecessary re-renders
+const Section = memo(({ title, icon, count, color, description, emptyMessage, children }) => (
+  <section className={`dashboard-section ${color}`}>
+    <div className="section-header">
+      <div className="section-title">
+        <span className="section-icon">{icon}</span>
+        <h2>{title}</h2>
+        <span className="section-count">{count}</span>
+      </div>
+      <p className="section-description">{description}</p>
+    </div>
+    <div className="section-content">
+      {count === 0 ? (
+        <div className="empty-state">{emptyMessage}</div>
+      ) : children}
+    </div>
+  </section>
+));
+
+const CardGrid = memo(({ children }) => (
+  <div className="card-grid">{children}</div>
+));
+
+const RequestCard = memo(({ person, type, status, onConfirm }) => {
+  const isVisitor = type === 'visitor';
+  const icon = isVisitor ? '👤' : '🎓';
+  const isProcessing = person.processing;
+  
+  return (
+    <div className={`request-card ${status} ${isProcessing ? 'processing' : ''}`}>
+      <div className="card-header">
+        <div className="person-info">
+          <span className="person-icon">{icon}</span>
+          <h3 className="person-name">{person.name}</h3>
+        </div>
+        <span className={`status-badge ${status}`}>
+          {status === 'pending' ? 'Awaiting Faculty' : 
+           status === 'ready' ? 'Ready for Exit' : 'Completed'}
+        </span>
+      </div>
+      <div className="card-body">
+        <p className="person-detail">
+          {isVisitor ? `Phone: ${person.phone}` : `ID: ${person.studentId}`}
+        </p>
+        <p className="purpose">Purpose: {person.purpose}</p>
+        <p className="timestamp entry-time">
+          Entry: {new Date(person.entryTime).toLocaleString()}
+        </p>
+        {person.exitTime && (
+          <p className="timestamp exit-time">
+            Exit: {new Date(person.exitTime).toLocaleString()}
+          </p>
+        )}
+      </div>
+      {status === 'ready' && (
+        <div className="card-actions">
+          <button 
+            className={`confirm-button ${isProcessing ? 'processing' : ''}`} 
+            onClick={() => onConfirm(person._id, type, isVisitor ? person.phone : null)}
+            disabled={isProcessing}
+          >
+            {isProcessing ? 'Processing...' : 'Confirm Exit'}
+          </button>
+        </div>
+      )}
+    </div>
+  );
+});
+
+export default Dashboard;

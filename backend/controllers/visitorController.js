@@ -186,16 +186,29 @@ exports.requestExit = async (req, res) => {
 // ✅ Approve exit
 exports.approveExit = async (req, res) => {
   try {
-    const visitor = await Visitor.findOne({ phone: req.body.phone });
-    if (!visitor) return res.status(404).json({ message: "Visitor not found" });
+    // Use findOneAndUpdate instead of findOne and save to avoid validation issues
+    const visitor = await Visitor.findOneAndUpdate(
+      { phone: req.body.phone },
+      { exitApproved: true },
+      { new: true, runValidators: false } // Return updated document and skip validation
+    );
+    
+    if (!visitor) {
+      return res.status(404).json({ success: false, message: "Visitor not found" });
+    }
 
-    visitor.exitApproved = true;
-    await visitor.save();
+    // Notify guard about the approved exit
+    try {
+      notifyGuard(`✅ Exit Approved: Visitor ${visitor.name} can exit.`);
+    } catch (notifyError) {
+      console.error("Notification error during exit approval:", notifyError);
+      // Continue with the approval process even if notification fails
+    }
 
-    notifyGuard(`✅ Exit Approved: Visitor ${visitor.name} can exit.`);
-    res.status(200).json({ message: "Exit approved", visitor });
+    res.status(200).json({ success: true, message: "Exit approved", visitor });
   } catch (error) {
-    res.status(500).json({ message: "Error approving exit", error });
+    console.error("Error approving exit:", error);
+    res.status(500).json({ success: false, message: "Error approving exit", error: error.message });
   }
 };
 

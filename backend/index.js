@@ -4,11 +4,11 @@ const mongoose = require('mongoose');
 const cors = require('cors');
 const http = require('http'); // Required for Socket.IO
 const { Server } = require("socket.io"); // Socket.IO server
-// Remove setupNotifications import if you're not using it
-// const { setupNotifications } = require('./utils/notifications');
+// Import notifications module
+const { notifyGuards, notifyFaculty } = require('./utils/notifications');
 
 // Fix case sensitivity in route imports
-const visitorRoutes = require('./routes/visitorRoutes');
+const visitorRoutes = require('./routes/visitorroutes');
 const studentRoutes = require('./routes/studentRoutes');
 const statsRoutes = require('./routes/statsRoutes');
 const authRoutes = require("./authRoutes");
@@ -21,7 +21,7 @@ const server = http.createServer(app); // Create HTTP server
 const corsOptions = {
   origin: process.env.FRONTEND_URL || 'http://localhost:5173',
   optionsSuccessStatus: 200,
-  methods: ["GET", "POST"],
+  methods: ["GET", "POST", "PUT", "DELETE", "PATCH", "OPTIONS"],
   credentials: true
 };
 app.use(cors(corsOptions));

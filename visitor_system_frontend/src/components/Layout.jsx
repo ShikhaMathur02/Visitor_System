@@ -1,10 +1,12 @@
 import { useState } from 'react';
 import { Outlet, Link as RouterLink, useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
+import { useSocket } from '../context/SocketContext';
+import { useSocketNotifications } from '../utils/socketNotifications';
 import { 
   AppBar, Toolbar, Typography, IconButton, Drawer, List, ListItem, 
   ListItemIcon, ListItemText, CssBaseline, Box, Badge, Button, Divider,
-  Avatar, Menu, MenuItem
+  Avatar, Menu, MenuItem, Alert, Chip
 } from '@mui/material';
 import MenuIcon from '@mui/icons-material/Menu';
 import NotificationsIcon from '@mui/icons-material/Notifications';
@@ -23,6 +25,10 @@ function Layout({ children }) {
   const [anchorEl, setAnchorEl] = useState(null);
   const { currentUser, logout, hasRole } = useAuth();
   const navigate = useNavigate();
+  const { isConnected, connectionError } = useSocket();
+  
+  // Initialize socket notifications
+  useSocketNotifications(currentUser?._id ? `faculty-${currentUser._id}` : null);
 
   const handleDrawerToggle = () => {
     setMobileOpen(!mobileOpen);
@@ -93,6 +99,11 @@ function Layout({ children }) {
 
   return (
     <Box sx={{ display: 'flex' }}>
+      {connectionError && (
+        <Alert severity="error" sx={{ width: '100%' }}>
+          {connectionError}
+        </Alert>
+      )}
       <CssBaseline />
       <AppBar
         position="fixed"
@@ -114,6 +125,14 @@ function Layout({ children }) {
           <Typography variant="h6" noWrap component="div" sx={{ flexGrow: 1 }}>
             Visitor Management System
           </Typography>
+          
+          {/* Socket connection status indicator */}
+          <Chip 
+            size="small"
+            label={isConnected ? "Connected" : "Disconnected"}
+            color={isConnected ? "success" : "error"}
+            sx={{ mr: 2 }}
+          />
           
           {currentUser ? (
             <div>

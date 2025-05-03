@@ -107,35 +107,81 @@ if (cluster.isMaster) {
     }
   });
   
-  // Setup Socket.IO with error handling
+  // Setup Socket.IO with enhanced error handling and connection management
   const io = new Server(server, {
     cors: corsOptions,
     pingTimeout: 60000, // Close connection after 60s of inactivity
-    maxHttpBufferSize: 1e6 // 1MB max message size
+    maxHttpBufferSize: 1e6, // 1MB max message size
+    connectTimeout: 45000, // Connection timeout after 45s
+    // Reconnection settings
+    reconnection: true,
+    reconnectionAttempts: 5,
+    reconnectionDelay: 1000,
+    reconnectionDelayMax: 5000,
+    // Transport options
+    transports: ['websocket', 'polling'],
+    // Upgrade from polling to websocket when possible
+    upgradeTimeout: 10000
   });
   
   // Make io available to other modules
   app.set('io', io);
   exports.io = io;
   
-  // Socket.IO connection handling with error handling
+  // Socket.IO middleware for logging and error handling
+  io.use((socket, next) => {
+    const clientIp = socket.handshake.address;
+    console.log(`Socket connection attempt from ${clientIp}`);
+    
+    // You could add authentication here if needed
+    // if (!socket.handshake.auth.token) {
+    //   return next(new Error('Authentication error'));
+    // }
+    
+    next();
+  });
+  
+  // Socket.IO connection handling with comprehensive error handling
   io.on('connection', (socket) => {
-    console.log(`New client connected: ${socket.id}`);
+    console.log(`New client connected: ${socket.id} from ${socket.handshake.address}`);
     
     // Handle room joining for targeted notifications
     socket.on('joinRoom', (room) => {
+      if (typeof room !== 'string' || !room.trim()) {
+        socket.emit('error', { message: 'Invalid room name' });
+        return;
+      }
+      
       socket.join(room);
       console.log(`Socket ${socket.id} joined room: ${room}`);
+      socket.emit('notification', { message: `Joined room: ${room}`, type: 'success' });
     });
     
-    socket.on('disconnect', () => {
-      console.log(`Client disconnected: ${socket.id}`);
+    // Handle client-side errors
+    socket.on('client_error', (error) => {
+      console.error(`Client error from ${socket.id}:`, error);
+    });
+    
+    socket.on('disconnect', (reason) => {
+      console.log(`Client disconnected: ${socket.id}, reason: ${reason}`);
     });
     
     // Handle socket errors
     socket.on('error', (error) => {
       console.error(`Socket ${socket.id} error:`, error);
     });
+    
+    // Ping/pong for connection health check
+    socket.on('ping_server', (callback) => {
+      if (typeof callback === 'function') {
+        callback({ status: 'ok', time: new Date().toISOString() });
+      }
+    });
+  });
+  
+  // Handle server-side socket errors
+  io.engine.on('connection_error', (err) => {
+    console.error('Connection error:', err);
   });
   
   // Import routes

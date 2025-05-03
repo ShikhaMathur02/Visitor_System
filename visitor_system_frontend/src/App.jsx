@@ -3,6 +3,7 @@ import { ThemeProvider, createTheme } from '@mui/material/styles';
 import CssBaseline from '@mui/material/CssBaseline';
 import { NotificationProvider } from './context/NotificationContext';
 import { AuthProvider } from './context/AuthContext';
+import { SocketProvider } from './context/SocketContext';
 
 // Layout
 import Layout from './components/Layout';
@@ -33,11 +34,12 @@ function App() {
   return (
     <ThemeProvider theme={theme}>
       <CssBaseline />
-      <NotificationProvider>
-        <AuthProvider>
-          <Router>
-            <Layout>
-              <Routes>
+      <SocketProvider>
+        <NotificationProvider>
+          <AuthProvider>
+            <Router>
+              <Layout>
+                <Routes>
                 {/* Public routes */}
                 <Route path="/" element={<Home />} />
                 <Route path="/login" element={<Login />} />
@@ -74,11 +76,12 @@ function App() {
                 
                 {/* Fallback route */}
                 <Route path="*" element={<Navigate to="/" replace />} />
-              </Routes>
-            </Layout>
-          </Router>
-        </AuthProvider>
-      </NotificationProvider>
+                </Routes>
+              </Layout>
+            </Router>
+          </AuthProvider>
+        </NotificationProvider>
+      </SocketProvider>
     </ThemeProvider>
   );
 }
