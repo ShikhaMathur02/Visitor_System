@@ -185,7 +185,7 @@ if (cluster.isMaster) {
   });
   
   // Import routes
-const visitorRoutes = require('./routes/visitorroutes');
+  const visitorRoutes = require('./routes/visitorRoutes');
   const studentRoutes = require('./routes/studentRoutes');
   const statsRoutes = require('./routes/statsRoutes');
   const authRoutes = require('./authRoutes');
