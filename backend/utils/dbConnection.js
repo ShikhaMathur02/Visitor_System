@@ -30,6 +30,7 @@ const connectWithRetry = async () => {
     try {
       await mongoose.connect(process.env.MONGODB_URI, connectionOptions);
       console.log('MongoDB Connected');
+    
       
       // Set up connection event listeners
       mongoose.connection.on('error', (err) => {
