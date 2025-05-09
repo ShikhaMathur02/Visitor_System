@@ -36,7 +36,7 @@ function EntryForm() {
   const [error, setError] = useState('');
   const [touched, setTouched] = useState({});
   const { addNotification } = useNotification();
-  const baseUrl = 'http://localhost:5000';
+  const baseUrl = import.meta.env.VITE_API_URL || "https://visitor-system-backend.onrender.com"
 
   // Departments list
   const departments = ['Management', 'Engineering', 'Pharma', 'Nursing', 'Teaching'];

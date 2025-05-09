@@ -33,7 +33,7 @@ export function SocketProvider({ children }) {
   const [socket, setSocket] = useState(null);
   const [isConnected, setIsConnected] = useState(false);
   const [connectionError, setConnectionError] = useState(null);
-  const baseUrl = import.meta.env.VITE_API_URL || 'http://localhost:5000';
+  const baseUrl = import.meta.env.VITE_API_URL || 'https://visitor-system-backend.onrender.com';
 
   useEffect(() => {
     // Create socket connection with error handling and reconnection options
@@ -44,7 +44,7 @@ export function SocketProvider({ children }) {
       timeout: 20000,
       autoConnect: true,
       path: '/socket.io/',
-      transports: ['polling', 'websocket'], // Try polling first, then upgrade to websocket
+      transports: ['websocket'], // Try polling first, then upgrade to websocket
       forceNew: true
     });
 

@@ -13,7 +13,7 @@ const Dashboard = () => {
   const [error, setError] = useState(null);
   const [lastUpdated, setLastUpdated] = useState(null);
   
-  const baseUrl = import.meta.env.VITE_API_URL || 'http://localhost:5000';
+  const baseUrl = import.meta.env.VITE_API_URL || 'https://visitor-system-backend.onrender.com/';
 
   // Memoized fetch function to avoid recreating on every render
   const fetchAllRequests = useCallback(async () => {

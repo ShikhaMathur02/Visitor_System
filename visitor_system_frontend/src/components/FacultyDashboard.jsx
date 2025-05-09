@@ -58,7 +58,7 @@ function FacultyDashboard() {
   const [totalRecords, setTotalRecords] = useState(0);
   const { addNotification } = useNotification();
   const { currentUser } = useAuth();
-  const baseUrl = import.meta.env.VITE_API_URL || 'http://localhost:5000';
+  const baseUrl = import.meta.env.VITE_API_URL || 'https://visitor-system-backend.onrender.com';
 
   // Fetch pending exit requests
   const fetchRequests = useCallback(async () => {

@@ -13,7 +13,7 @@ function StudentEntryForm() {
   const [error, setError] = useState(null);
   const [successInfo, setSuccessInfo] = useState(null); // To show QR/success message
   const { addNotification } = useNotification();
-  const baseUrl = import.meta.env.VITE_API_URL || 'http://localhost:5000';
+  const baseUrl = import.meta.env.VITE_API_URL || 'https://visitor-system-backend.onrender.com';
 
   const handleSubmit = async (event) => {
     event.preventDefault();

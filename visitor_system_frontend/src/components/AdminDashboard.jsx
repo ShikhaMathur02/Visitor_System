@@ -16,7 +16,7 @@ import AddIcon from '@mui/icons-material/Add';
 
 // Create API service to centralize API calls
 const adminService = {
-  baseUrl: import.meta.env.VITE_API_URL || 'http://localhost:5000',
+  baseUrl: import.meta.env.VITE_API_URL || 'https://visitor-system-backend.onrender.com',
   
   getUsers: async () => {
     return axios.get(`${adminService.baseUrl}/admin/users`);
@@ -42,7 +42,7 @@ const adminService = {
 // Create separate components for better organization and performance
 
 // Stats card component
-const StatCard = ({ icon: Icon, count, label, color }) => (
+const StatCard = ({ icon:  count, label, color }) => (
   <Grid item xs={12} sm={6} md={3}>
     <Paper elevation={2} sx={{ p: 2, textAlign: 'center' }}>
       <Box sx={{ color: `${color}.main`, mb: 1 }}><Icon /></Box>
