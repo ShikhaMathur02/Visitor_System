@@ -55,7 +55,7 @@ if (cluster.isMaster) {
   
   // Configure CORS
   const corsOptions = {
-    origin: process.env.FRONTEND_URL || 'https://visitor-system-backend.onrender.com',
+    origin: process.env.FRONTEND_URL || 'https://visitor-system-front-end.onrender.com',
     optionsSuccessStatus: 200,
     methods: ["GET", "POST", "PUT", "DELETE"],
     credentials: true
