@@ -42,7 +42,7 @@ const adminService = {
 // Create separate components for better organization and performance
 
 // Stats card component
-const StatCard = ({ icon:  count, label, color }) => (
+const StatCard = ({ icon: Icon, count, label, color }) => (
   <Grid item xs={12} sm={6} md={3}>
     <Paper elevation={2} sx={{ p: 2, textAlign: 'center' }}>
       <Box sx={{ color: `${color}.main`, mb: 1 }}><Icon /></Box>
