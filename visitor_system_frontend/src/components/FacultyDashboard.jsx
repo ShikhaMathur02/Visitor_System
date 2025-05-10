@@ -39,6 +39,19 @@ const StatCard = memo(({ title, value, icon, color = "text.secondary" }) => (
   </Paper>
 ));
 
+// Helper function for debouncing (moved outside component)
+function debounce(func, wait) {
+  let timeout;
+  return function executedFunction(...args) {
+    const later = () => {
+      clearTimeout(timeout);
+      func(...args);
+    };
+    clearTimeout(timeout);
+    timeout = setTimeout(later, wait);
+  };
+}
+
 function FacultyDashboard() {
   const [pendingStudents, setPendingStudents] = useState([]);
   const [pendingVisitors, setPendingVisitors] = useState([]);
@@ -210,7 +223,7 @@ function FacultyDashboard() {
     } finally {
       setRecordsLoading(false);
     }
-  }, [baseUrl, currentUser, addNotification]);
+  }, [baseUrl, currentUser, page, pageSize, addNotification]);
 
   // Combined initial load and polling with optimized loading
   const loadData = useCallback(async () => {
@@ -433,9 +446,61 @@ function FacultyDashboard() {
     setPage(0); // Reset to first page when changing page size
   }, []);
 
-  // Socket connection effect - memoized to prevent unnecessary reconnections
+  // Pre-calculate the pending requests list outside the return statement
+  const pendingRequestsList = useMemo(() => {
+    const allPendingRequests = [
+      ...pendingVisitors.map(visitor => ({ 
+        type: 'visitor', 
+        data: visitor, 
+        key: `v-${visitor._id}` 
+      })),
+      ...pendingStudents.map(student => ({ 
+        type: 'student', 
+        data: student, 
+        key: `s-${student._id}` 
+      }))
+    ];
+    
+    return (
+      <Grid container spacing={2}>
+        {allPendingRequests.map((request) => (
+          <Grid item xs={12} sm={6} md={4} key={request.key}>
+            <Card variant="outlined">
+              <CardContent>
+                <Typography variant="h6">
+                  {request.type === 'visitor' ? request.data.name + ' (Visitor)' : request.data.name + ' (Student)'}
+                </Typography>
+                <Typography color="text.secondary">
+                  {request.type === 'visitor' ? `Phone: ${request.data.phone}` : `ID: ${request.data.studentId}`}
+                </Typography>
+                <Typography color="text.secondary">Purpose: {request.data.purpose}</Typography>
+                <Typography color="text.secondary">
+                  Entered: {new Date(request.data.entryTime).toLocaleString()}
+                </Typography>
+              </CardContent>
+              <CardActions>
+                <Button
+                  size="small"
+                  variant="contained"
+                  color="success"
+                  startIcon={<CheckCircleOutlineIcon />}
+                  onClick={() => request.type === 'visitor' 
+                    ? handleApproveVisitor(request.data) 
+                    : handleApproveStudent(request.data._id)}
+                >
+                  Approve Exit
+                </Button>
+              </CardActions>
+            </Card>
+          </Grid>
+        ))}
+      </Grid>
+    );
+  }, [pendingVisitors, pendingStudents, handleApproveVisitor, handleApproveStudent]);
+
+  // Socket connection effect - properly structured
   useEffect(() => {
-    let socket;
+    let socket = null;
     
     // Only connect to socket if we have a current user
     if (currentUser && currentUser._id) {
@@ -445,10 +510,7 @@ function FacultyDashboard() {
         transports: ['websocket']
       });
 
-      // Join a room specific to this faculty member
-      socket.emit('joinRoom', `user_${currentUser._id}`);
-      
-      // Create debounced refresh functions to prevent multiple refreshes
+      // Create debounced refresh function
       const debouncedRefresh = debounce(() => {
         if (document.visibilityState === 'visible') {
           fetchRequests();
@@ -459,6 +521,9 @@ function FacultyDashboard() {
           }
         }
       }, 1000);
+
+      // Join a room specific to this faculty member
+      socket.emit('joinRoom', `user_${currentUser._id}`);
 
       // Set up event listeners
       socket.on('newVisitor', (data) => {
@@ -488,19 +553,6 @@ function FacultyDashboard() {
       }
     };
   }, [baseUrl, currentUser, addNotification, fetchRequests, fetchStats, fetchAllDailyRecords]);
-  
-  // Helper function for debouncing
-  function debounce(func, wait) {
-    let timeout;
-    return function executedFunction(...args) {
-      const later = () => {
-        clearTimeout(timeout);
-        func(...args);
-      };
-      clearTimeout(timeout);
-      timeout = setTimeout(later, wait);
-    };
-  }
 
   if (loading) {
     return <Box sx={{ display: 'flex', justifyContent: 'center', p: 4 }}><CircularProgress /></Box>;
@@ -593,57 +645,7 @@ function FacultyDashboard() {
         <Typography sx={{ mb: 2 }}>No pending exit requests.</Typography>
       ) : (
         <Box sx={{ width: '100%' }}>
-          {/* Combine all pending requests for more efficient rendering */}
-          {useMemo(() => {
-            const allPendingRequests = [
-              ...pendingVisitors.map(visitor => ({ 
-                type: 'visitor', 
-                data: visitor, 
-                key: `v-${visitor._id}` 
-              })),
-              ...pendingStudents.map(student => ({ 
-                type: 'student', 
-                data: student, 
-                key: `s-${student._id}` 
-              }))
-            ];
-            
-            return (
-              <Grid container spacing={2}>
-                {allPendingRequests.map((request) => (
-                  <Grid item xs={12} sm={6} md={4} key={request.key}>
-                    <Card variant="outlined">
-                      <CardContent>
-                        <Typography variant="h6">
-                          {request.type === 'visitor' ? request.data.name + ' (Visitor)' : request.data.name + ' (Student)'}
-                        </Typography>
-                        <Typography color="text.secondary">
-                          {request.type === 'visitor' ? `Phone: ${request.data.phone}` : `ID: ${request.data.studentId}`}
-                        </Typography>
-                        <Typography color="text.secondary">Purpose: {request.data.purpose}</Typography>
-                        <Typography color="text.secondary">
-                          Entered: {new Date(request.data.entryTime).toLocaleString()}
-                        </Typography>
-                      </CardContent>
-                      <CardActions>
-                        <Button
-                          size="small"
-                          variant="contained"
-                          color="success"
-                          startIcon={<CheckCircleOutlineIcon />}
-                          onClick={() => request.type === 'visitor' 
-                            ? handleApproveVisitor(request.data) 
-                            : handleApproveStudent(request.data._id)}
-                        >
-                          Approve Exit
-                        </Button>
-                      </CardActions>
-                    </Card>
-                  </Grid>
-                ))}
-              </Grid>
-            );
-          }, [pendingVisitors, pendingStudents, handleApproveVisitor, handleApproveStudent])}
+          {pendingRequestsList}
         </Box>
       )}
 
@@ -710,51 +712,37 @@ function FacultyDashboard() {
       )}
 
       {/* Updated DataGrid with virtualization, pagination and error handling */}
+      {/* Updated DataGrid with virtualization, pagination and error handling */}
       <div style={{ height: 600, width: '100%', marginBottom: '2rem' }}>
         {recordsLoading && filteredRecords.length === 0 ? (
-          <Box sx={{ width: '100%', mt: 2 }}>
-            <Skeleton variant="rectangular" height={400} />
+          <Box sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: '100%' }}>
+            <CircularProgress />
           </Box>
         ) : (
           <DataGrid
             rows={filteredRecords}
             columns={columns}
-            loading={recordsLoading}
             pagination
+            rowCount={totalRecords}
             paginationMode="server"
             page={page}
             pageSize={pageSize}
-            rowCount={totalRecords}
             onPageChange={handlePageChange}
             onPageSizeChange={handlePageSizeChange}
             rowsPerPageOptions={[10, 25, 50, 100]}
             disableSelectionOnClick
-            getRowId={(row) => row.id}
-            autoHeight
-            density="standard"
-            // Enable virtualization for better performance with large datasets
+            loading={recordsLoading}
             components={{
-              LoadingOverlay: CustomLoadingOverlay
+              LoadingOverlay: CustomLoadingOverlay,
             }}
-            // Optimize rendering performance
-            componentsProps={{
-              cell: {
-                style: { overflow: 'hidden', textOverflow: 'ellipsis' }
+            sx={{
+              '& .MuiDataGrid-cell:focus': {
+                outline: 'none',
+              },
+              '& .MuiDataGrid-row:hover': {
+                backgroundColor: 'rgba(0, 0, 0, 0.04)',
               }
             }}
-            // Error handling
-            error={error ? true : false}
-            onError={(error) => {
-              console.error('DataGrid error:', error);
-              addNotification('Error loading data. Please try refreshing.', 'error');
-            }}
-            // Improve performance by disabling certain features when not needed
-            disableColumnMenu={recordsLoading}
-            disableColumnFilter={recordsLoading}
-            disableColumnSelector={recordsLoading}
-            disableDensitySelector={recordsLoading}
-            // Cache the grid state to improve performance
-            keepNonExistentRowsSelected
           />
         )}
       </div>
