@@ -270,8 +270,8 @@ function FacultyDashboard() {
     return () => document.removeEventListener('visibilitychange', handleVisibilityChange);
   }, [fetchStats, fetchAllDailyRecords]);
 
-  // Use useMemo for filtering to avoid unnecessary recalculations
-  useMemo(() => {
+  // Use useEffect for filtering to avoid unnecessary recalculations
+  useEffect(() => {
     if (!allRecords || allRecords.length === 0) {
       setFilteredRecords([]);
       return;
