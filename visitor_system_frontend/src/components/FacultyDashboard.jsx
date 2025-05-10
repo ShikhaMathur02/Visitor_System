@@ -594,7 +594,7 @@ function FacultyDashboard() {
       ) : (
         <Box sx={{ width: '100%' }}>
           {/* Combine all pending requests for more efficient rendering */}
-          {(() => {
+          {useMemo(() => {
             const allPendingRequests = [
               ...pendingVisitors.map(visitor => ({ 
                 type: 'visitor', 
