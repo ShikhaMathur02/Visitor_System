@@ -7,8 +7,6 @@ const mongoose = require('mongoose');
 
 // Connection options with pooling configuration
 const connectionOptions = {
-  useNewUrlParser: true,
-  useUnifiedTopology: true,
   maxPoolSize: 100, // Maximum number of connections in the pool
   minPoolSize: 5,   // Minimum number of connections in the pool
   socketTimeoutMS: 45000, // Close sockets after 45s of inactivity
